@@ -404,6 +404,51 @@ bash scripts/eval.sh
     --seed_list seed7
 
 =============================================================
+## Error Resolving Log
+=============================================================
+
+### [Phase 4] Docker 시작 시 std::system_error / Operation not permitted
+- 증상: docker run 즉시 terminate called / operation not permitted
+- 원인: micromamba run이 clone/unshare syscall 사용 → Docker seccomp에 막힘
+- 해결: --ipc=host --security-opt seccomp=unconfined 추가, CMD를 bash로 override
+- 컨테이너 진입 후 micromamba 활성화: eval "$(micromamba shell hook --shell bash)" && micromamba activate robomme
+
+### [Phase 5] uv run 시 pynvml / mypy 다운로드 시도
+- 증상: uv run scripts/xxx.py 실행 시 인터넷 없어서 패키지 다운로드 실패
+- 원인: uv run은 실행 전 pyproject.toml deps 동기화 시도
+- 해결: uv run → .venv/bin/python 으로 전체 교체
+
+### [Phase 5] .venv/bin/python 실행 시 JAX not found
+- 증상: python scripts/build_dataset.py 실행 시 JAX import 실패
+- 원인: 시스템 python은 JAX 없음, JAX는 .venv에만 설치됨
+- 해결: .venv/bin/python 직접 사용
+
+### [Phase 5] compute_norm_stats.py 실행 시 pytest 없음
+- 증상: ModuleNotFoundError: No module named 'pytest'
+- 원인: Dockerfile이 uv sync --frozen --no-dev로 빌드 → pytest(dev dep) 미설치
+         gemma_pytorch.py가 pytest.Cache를 타입힌트로 import
+- 해결: pytest stub 생성
+    SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+    echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
+- 주의: 컨테이너 재시작 시 날아가므로 매번 실행 필요 (Docker Quick Start 섹션 참고)
+
+### [Phase 5] assets 폴더 컨테이너 안에서 안 보임
+- 증상: cp assets/norm_stats.json 실패
+- 원인: docker run 커맨드에 assets 마운트 누락
+- 해결: -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets 추가
+
+### [Phase 6] 훈련 중 GPU 전체 hang (nvidia-smi도 응답 없음)
+- 증상: [1]: (64,20,32)@float32 출력 후 완전 freeze, nvidia-smi hang, docker kill도 hang
+- 원인: 4 GPU FSDP init 시 NCCL deadlock (init_train_state → jax.block_until_ready)
+- 해결: 재부팅 후 1 GPU로 시작 (CUDA_VISIBLE_DEVICES=0, --fsdp-devices=1)
+- 1 GPU에서 정상 동작 확인 → 추후 4 GPU 시 NCCL_P2P_DISABLE=1 시도
+
+### [Phase 6] tentative run 후 FileExistsError
+- 증상: tentative run 완료 후 checkpoint directory already exists 에러
+- 원인: train.py가 main()을 두 번 호출 (tentative → 본 훈련), 두 번째 호출 시 디렉토리 충돌
+- 해결: --overwrite 플래그 추가
+
+=============================================================
 ## Backup Memo
 =============================================================
 - After PHASE 2 completed, backed up A100's /raid/seokmin/ to:
