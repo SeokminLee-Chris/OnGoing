@@ -171,7 +171,7 @@ F:\seokmin\
 =============================================================
 
 ------------------------------------------------------------
-### PHASE 1: Reorganize seokmin directory
+### PHASE 1: Reorganize seokmin directory ✅ DONE
 ------------------------------------------------------------
 # Before replacing robomme_policy_learning, move docker tars out first
 mkdir -p /raid/seokmin/seokmin/docker_images
