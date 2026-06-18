@@ -1,0 +1,350 @@
+# A100 Setting Log
+# Target machine: 4x A100 80GB, Ubuntu 20.04, no internet
+# Transfer medium: 2TB USB
+# Available disk on A100: 1.3TB
+
+=============================================================
+## Development Workflow
+=============================================================
+- Code editing: Windows PC (this machine, C:\Users\USER\MemoryForVLA)
+- Execution: A100 (company, no internet) — used as a compute server
+- Cycle:
+    1. Edit code on Windows PC
+    2. Transfer modified files to A100 (via USB or SCP to home 4090 first)
+    3. Run on A100, check results / errors
+    4. If error → back to Windows, fix, transfer again, re-run
+    5. Repeat
+- Claude assists with code editing and debugging on Windows side
+  (paste error logs here → debug together → fix → transfer → re-run)
+
+=============================================================
+## A100 Machine Current State
+=============================================================
+- OS: Ubuntu 20.04
+- CUDA: 11.4 → updated to 12.8 (via driver update)
+- Driver: 470.57.02 → updated to 570.133.07 ✅
+- Docker: installed ✅
+- NVIDIA Container Toolkit: 1.5.1-1 ✅
+
+=============================================================
+## USB Packing List
+=============================================================
+
+### 1. NVIDIA Driver ✅ DONE
+- File: NVIDIA-Linux-x86_64-570.133.07.run (~350 MB)
+- Install on A100:
+    sudo systemctl isolate multi-user.target
+    sudo sh NVIDIA-Linux-x86_64-570.133.07.run --no-questions
+    sudo reboot
+    nvidia-smi  # verify: Driver 570.xx, CUDA 12.8
+- Notes during install:
+    - Kernel module: choose "nvidia proprietary"
+    - 32-bit compatibility libs: No (headless training server)
+    - DKMS: Yes (auto-rebuilds module on kernel update)
+    - EGL warning: ignore, not needed for training
+    - nvidia-xconfig: No (no display server needed)
+
+### 2. Docker Image ✅ DONE
+- Built on Linux 4090:
+    git clone --recurse-submodules https://github.com/RoboMME/robomme_policy_learning
+    cd robomme_policy_learning
+    docker build -t mme_vla:cuda12.8 .
+    docker save mme_vla:cuda12.8 | gzip > mme_vla_cuda12.8.tar.gz
+    docker pull nvidia/cuda:12.8.0-base-ubuntu24.04
+    docker save nvidia/cuda:12.8.0-base-ubuntu24.04 | gzip > nvidia_cuda12.8_base.tar.gz
+- Transferred to Windows via SCP, stored on USB at:
+    F:\seokmin\robomme_policy_learning\mme_vla_cuda12.8.tar.gz
+    F:\seokmin\robomme_policy_learning\nvidia_cuda12.8_base.tar.gz
+- Load on A100:
+    docker load < mme_vla_cuda12.8.tar.gz
+    docker load < nvidia_cuda12.8_base.tar.gz
+    docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu24.04 nvidia-smi  # verify
+
+### 3. Code Repo ✅ DONE
+- Stored on USB at: F:\seokmin\robomme_policy_learning\
+- Place on A100 at: ~/robomme_policy_learning
+
+### 4. PaliGemma Tokenizer ✅ DONE
+- Downloaded on Windows (1.5 MB, but CRITICAL — training crashes without it):
+    # gs://big_vision/paligemma_tokenizer.model
+- Stored on USB at: F:\seokmin\openpi_cache\big_vision\paligemma_tokenizer.model
+- Place on A100 at: $OPENPI_DATA_HOME/big_vision/paligemma_tokenizer.model
+  (already inside openpi_cache\ so just copying openpi_cache/ covers this ✅)
+
+### 5. pi05_base Weights ✅ DONE
+- Downloaded on Windows via google-cloud-storage (Python):
+    # gs://openpi-assets/checkpoints/pi05_base (~14.5 GB)
+- Stored on USB at: F:\seokmin\openpi_cache\openpi-assets\checkpoints\pi05_base\
+- Place on A100: copy openpi_cache/ contents into $OPENPI_DATA_HOME/
+
+### 6. pi05_vision_encoder ✅ DONE
+- Downloaded on Windows via HTTPS:
+    git clone https://huggingface.co/Yinpei/pi05_vision_encoder F:\seokmin\pi05_vision_encoder
+- Stored on USB at: F:\seokmin\pi05_vision_encoder\
+- Place on A100 at: $OPENPI_DATA_HOME/pi05_vision_encoder/
+
+### 7. Dataset ✅ DONE
+- Downloading raw data (~56.4 GB) directly to USB:
+    git clone https://huggingface.co/datasets/Yinpei/robomme_data_h5 F:\seokmin\robomme_data_h5
+- On A100 inside container (preprocess, ~2-3 hrs, expands to ~384 GB):
+    uv run scripts/tarxz_h5.py decompress --input_dir data/robomme_data_h5 --jobs 16 --remove_archive
+- VLM subgoal dataset: NO separate download needed!
+    → generated from robomme_data_h5 on A100 via:
+    uv run scripts/build_dataset.py --dataset_type vlm_subgoal_qwenvl \
+        --raw_data_path data/robomme_data_h5 --preprocessed_data_path data/robomme_preprocessed_data
+    uv run scripts/build_dataset.py --dataset_type vlm_subgoal_memer \
+        --raw_data_path data/robomme_data_h5 --preprocessed_data_path data/robomme_preprocessed_data
+
+### 8. Qwen3-VL-4B-Instruct ✅ DONE
+- Required for VLM subgoal predictor training & inference
+- Hardcoded in examples/robomme/subgoal_prediction/qwenvl/api.py as 'Qwen/Qwen3-VL-4B-Instruct'
+- Download (~8 GB):
+    git clone https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct F:\seokmin\Qwen3-VL-4B-Instruct
+- Place on A100 at: ~/Qwen3-VL-4B-Instruct (or any path)
+- On A100, set HF_HOME so transformers finds it offline:
+    export HF_HOME=~/hf_cache
+    # or set TRANSFORMERS_OFFLINE=1 and put model in HF cache structure
+
+=============================================================
+## Storage Budget on A100 (1.3TB disk)
+=============================================================
+- Docker image:        ~20 GB
+- Code repo:           ~1  GB
+- pi05_base:           ~15 GB
+- pi05_vision_encoder: ~2  GB
+- Qwen3-VL-4B:        ~8  GB
+- Raw dataset:         ~56 GB (download) → ~384 GB (after preprocess)
+- Total (after preprocess): ~430 GB  ✅ fits in 1.3TB
+
+=============================================================
+## USB Contents Summary (F:\seokmin\)
+=============================================================
+F:\seokmin\
+├── robomme_policy_learning\     ← code repo + docker tar.gz images
+│   ├── mme_vla_cuda12.8.tar.gz
+│   └── nvidia_cuda12.8_base.tar.gz
+├── openpi_cache\                ← openpi data (pi05_base + paligemma tokenizer)
+│   ├── openpi-assets\
+│   │   └── checkpoints\
+│   │       └── pi05_base\
+│   └── big_vision\
+│       └── paligemma_tokenizer.model
+├── pi05_vision_encoder\         ← vision encoder (siglip_params.pkl)
+├── robomme_data_h5\             ← raw dataset (downloading)
+└── Qwen3-VL-4B-Instruct\       ← (TODO) VLM subgoal predictor model
+
+=============================================================
+## A100 Setup Steps (in order)
+=============================================================
+[x] Step 1: Build Docker image on Linux 4090
+[x] Step 2: Download PaliGemma tokenizer (done on Windows)
+[x] Step 3: Download pi05_base weights (done on Windows)
+[x] Step 4: Download pi05_vision_encoder (done on Windows)
+[x] Step 5: Download raw dataset (downloading on Windows → USB)
+[x] Step 6: Download Qwen3-VL-4B-Instruct (downloading on Windows → USB)
+[ ] Step 7: On A100 — load Docker image, verify GPU
+[ ] Step 8: On A100 — set up directory structure, mount volumes
+[ ] Step 9: On A100 — preprocess raw dataset inside container
+[ ] Step 10: On A100 — train FrameSamp+Perceptual (perceptual-framesamp-modul)
+[ ] Step 11: On A100 — evaluate FrameSamp+Perceptual
+[ ] Step 12: On A100 — train VLM subgoal predictor for Symbolic+Grounded
+[ ] Step 13: On A100 — train Symbolic+Grounded (symbolic-grounded-subgoal)
+[ ] Step 14: On A100 — evaluate Symbolic+Grounded + QwenVL
+
+=============================================================
+## ⚠️ Key Notes
+=============================================================
+- pi05_vision_encoder must be at: $OPENPI_DATA_HOME/pi05_vision_encoder/siglip_params.pkl
+- pi05_base must be at:           $OPENPI_DATA_HOME/openpi-assets/checkpoints/pi05_base/
+- Qwen3-VL path is hardcoded in examples/robomme/subgoal_prediction/qwenvl/api.py
+  as 'Qwen/Qwen3-VL-4B-Instruct' → HF cache must follow this exact structure:
+  ~/hf_cache/hub/models--Qwen--Qwen3-VL-4B-Instruct/
+
+=============================================================
+## A100 Commands (run in order)
+=============================================================
+
+------------------------------------------------------------
+### PHASE 1: Reorganize seokmin directory
+------------------------------------------------------------
+# Before replacing robomme_policy_learning, move docker tars out first
+mkdir -p ~/seokmin/docker_images
+mv ~/seokmin/robomme_policy_learning/mme_vla_cuda12.8.tar.gz ~/seokmin/docker_images/
+mv ~/seokmin/robomme_policy_learning/nvidia_cuda12.8_base.tar.gz ~/seokmin/docker_images/
+
+# Now replace robomme_policy_learning with the complete recursive clone (from USB)
+# (USB has the full repo with third_party/robomme_benchmark populated)
+rm -rf ~/seokmin/robomme_policy_learning
+cp -r /mnt/usb/seokmin/robomme_policy_learning_full ~/seokmin/robomme_policy_learning
+# → third_party/robomme_benchmark/ should now be populated
+
+------------------------------------------------------------
+### PHASE 2: Set up host directory structure
+------------------------------------------------------------
+# Set up OPENPI_DATA_HOME
+mkdir -p ~/openpi_data
+cp -r ~/seokmin/openpi_cache/openpi-assets ~/openpi_data/
+cp -r ~/seokmin/openpi_cache/big_vision ~/openpi_data/
+cp -r ~/seokmin/pi05_vision_encoder ~/openpi_data/pi05_vision_encoder
+chmod -R 755 ~/openpi_data
+
+# Set up Qwen HF cache (TRANSFORMERS_OFFLINE needs this exact structure)
+mkdir -p ~/hf_cache/hub
+cp -r ~/seokmin/Qwen3-VL-4B-Instruct \
+    ~/hf_cache/hub/models--Qwen--Qwen3-VL-4B-Instruct
+
+# Copy raw dataset into repo data dir
+mkdir -p ~/seokmin/robomme_policy_learning/data
+cp -r ~/seokmin/robomme_data_h5 \
+    ~/seokmin/robomme_policy_learning/data/robomme_data_h5
+
+# Create runs dir (checkpoints + eval results go here, persisted outside Docker)
+mkdir -p ~/seokmin/robomme_policy_learning/runs/ckpts
+mkdir -p ~/seokmin/robomme_policy_learning/runs/evaluation
+mkdir -p ~/seokmin/robomme_policy_learning/runs/assets/mme_vla_suite
+
+# Add to ~/.bashrc
+echo 'export OPENPI_DATA_HOME=~/openpi_data' >> ~/.bashrc
+source ~/.bashrc
+
+------------------------------------------------------------
+### PHASE 3: Load Docker & verify GPU
+------------------------------------------------------------
+docker load < ~/seokmin/docker_images/mme_vla_cuda12.8.tar.gz
+docker load < ~/seokmin/docker_images/nvidia_cuda12.8_base.tar.gz
+
+# Verify GPU
+docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu24.04 nvidia-smi
+
+------------------------------------------------------------
+### PHASE 4: Start Docker container (keep alive for all steps)
+------------------------------------------------------------
+# Run from ~/seokmin/robomme_policy_learning
+cd ~/seokmin/robomme_policy_learning
+
+docker run --rm -it --gpus all \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video \
+  -e OPENPI_DATA_HOME=/openpi_data \
+  -e HF_HOME=/hf_cache \
+  -e TRANSFORMERS_OFFLINE=1 \
+  -e WANDB_MODE=offline \
+  -v ~/openpi_data:/openpi_data \
+  -v ~/hf_cache:/hf_cache \
+  -v ~/seokmin/robomme_policy_learning/data:/app/data \
+  -v ~/seokmin/robomme_policy_learning/runs:/app/runs \
+  mme_vla:cuda12.8
+
+# All commands below are run INSIDE this container
+
+------------------------------------------------------------
+### PHASE 5: Preprocess data (inside Docker)
+------------------------------------------------------------
+# 5-1. Decompress raw h5 (~2-3 hrs)
+uv run scripts/tarxz_h5.py decompress \
+    --input_dir data/robomme_data_h5 \
+    --jobs 16 \
+    --remove_archive
+
+# 5-2. Build preprocessed pkl dataset (~2-3 hrs)
+uv run scripts/build_dataset.py \
+    --dataset_type robomme_pkl \
+    --raw_data_path data/robomme_data_h5 \
+    --preprocessed_data_path data/robomme_preprocessed_data
+
+# 5-3. Copy reference norm_stats and compute (~3 min)
+cp assets/norm_stats.json runs/assets/mme_vla_suite/
+uv run scripts/compute_norm_stats.py \
+    --config-name mme_vla_suite \
+    --repo-id robomme \
+    --dataset-path data/robomme_preprocessed_data
+
+------------------------------------------------------------
+### PHASE 6: Train FrameSamp+Perceptual (perceptual-framesamp-modul)
+------------------------------------------------------------
+# Inside Docker
+CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
+uv run scripts/train.py mme_vla_suite \
+    --exp-name=perceptual-framesamp-modul \
+    --batch-size=64 \
+    --num-workers=4 \
+    --fsdp-devices=4 \
+    --dataset-path=data/robomme_preprocessed_data \
+    --model.use_history \
+    --model.history_config="perceptual-framesamp-modul.yaml"
+
+# Checkpoint → runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/
+
+------------------------------------------------------------
+### PHASE 7: Evaluate FrameSamp+Perceptual
+------------------------------------------------------------
+# eval.sh uses tmux internally (two windows: serve_policy + eval)
+# Edit eval.sh before running:
+#   MODEL_TYPE="perceptual-framesamp-modul"
+#   SEED=7
+#   CKPT_ID=79999
+#   GPU_ID_server=0
+#   GPU_ID_client=1
+
+bash scripts/eval.sh
+
+# Results → runs/evaluation/perceptual-framesamp-modul/ckpt79999/seed7/
+
+# Gather final numbers:
+uv run scripts/compute_results.py \
+    --model_dir perceptual-framesamp-modul \
+    --ckpt_list ckpt79999 \
+    --seed_list seed7
+
+------------------------------------------------------------
+### PHASE 8: Train VLM Subgoal Predictor (for Symbolic+Grounded)
+------------------------------------------------------------
+# 8-1. Build VLM subgoal training data (~30-60 min)
+uv run scripts/build_dataset.py \
+    --dataset_type vlm_subgoal_qwenvl \
+    --raw_data_path data/robomme_data_h5 \
+    --preprocessed_data_path data/robomme_preprocessed_data
+
+# 8-2. Fine-tune Qwen3-VL on grounded subgoals (inside micromamba robomme env)
+# Edit scripts/finetune_vlm_subgoal_predictor.sh:
+#   DATASET_PATH='data/robomme_preprocessed_data/qwenvl/grounded_subgoal_train.jsonl'
+#   OUTPUT_DIR='runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal'
+
+micromamba run -n robomme bash scripts/finetune_vlm_subgoal_predictor.sh
+
+# Checkpoint → runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal/
+
+------------------------------------------------------------
+### PHASE 9: Train Symbolic+Grounded (symbolic-grounded-subgoal)
+------------------------------------------------------------
+# Inside Docker
+CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
+uv run scripts/train.py mme_vla_suite \
+    --exp-name=symbolic-grounded-subgoal \
+    --batch-size=64 \
+    --num-workers=4 \
+    --fsdp-devices=4 \
+    --dataset-path=data/robomme_preprocessed_data \
+    --model.use_history \
+    --model.history_config="symbolic-grounded-subgoal.yaml"
+
+# Checkpoint → runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/
+
+------------------------------------------------------------
+### PHASE 10: Evaluate Symbolic+Grounded + QwenVL
+------------------------------------------------------------
+# Edit eval.sh before running:
+#   MODEL_TYPE="symbolic_groundedSG_qwenvl"
+#   SEED=7
+#   CKPT_ID=79999
+#   GPU_ID_server=0
+#   GPU_ID_client=1
+
+bash scripts/eval.sh
+
+# Results → runs/evaluation/symbolic-grounded-subgoal/ckpt79999/seed7/
+
+# Gather final numbers:
+uv run scripts/compute_results.py \
+    --model_dir symbolic-grounded-subgoal \
+    --ckpt_list ckpt79999 \
+    --seed_list seed7

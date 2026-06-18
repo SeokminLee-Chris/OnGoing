@@ -1,0 +1,17 @@
+# Python envs
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Old folders (not for tracking)
+robomme_policy_learning_old/
+robomme_benchmark/
+
+# Claude memory
+memory/
+
+# Misc
+.DS_Store
+*.egg-info/
