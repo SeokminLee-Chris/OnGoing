@@ -6,16 +6,20 @@
 =============================================================
 ## Development Workflow
 =============================================================
-- Code editing: Windows PC (this machine, C:\Users\USER\MemoryForVLA)
+- Code editing: Windows PC (C:\Users\USER\MemoryForVLA)
 - Execution: A100 (company, no internet) — used as a compute server
+- GitHub repo: https://github.com/SeokminLee-Chris/OnGoing
+  → tracks plan.txt + robomme_policy_learning/ (as regular folder, no nested .git)
+  → third_party/robomme_benchmark/ also tracked as regular files (no submodule)
+
 - Cycle:
-    1. Edit code on Windows PC
-    2. Transfer modified files to A100 (via USB or SCP to home 4090 first)
-    3. Run on A100, check results / errors
-    4. If error → back to Windows, fix, transfer again, re-run
-    5. Repeat
-- Claude assists with code editing and debugging on Windows side
-  (paste error logs here → debug together → fix → transfer → re-run)
+    1. Edit code on Windows PC (with Claude)
+    2. git add / commit / push → OnGoing repo
+    3. Download/clone OnGoing on a machine with internet (home 4090 or Windows)
+    4. Transfer robomme_policy_learning/ to A100 via USB
+       → replace ~/seokmin/robomme_policy_learning/ on A100 with downloaded version
+    5. Run on A100, check results / errors
+    6. If error → paste logs here → fix on Windows → repeat from step 2
 
 =============================================================
 ## A100 Machine Current State
