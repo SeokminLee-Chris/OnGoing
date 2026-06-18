@@ -148,7 +148,7 @@ F:\seokmin\
 [x] Step 4: Download pi05_vision_encoder (done on Windows)
 [x] Step 5: Download raw dataset (downloading on Windows → USB)
 [x] Step 6: Download Qwen3-VL-4B-Instruct (downloading on Windows → USB)
-[ ] Step 7: On A100 — load Docker image, verify GPU
+[x] Step 7: On A100 — load Docker image, verify GPU
 [x] Step 8: On A100 — set up directory structure (PHASE 1 & 2 done)
 [ ] Step 9: On A100 — preprocess raw dataset inside container
 [ ] Step 10: On A100 — train FrameSamp+Perceptual (perceptual-framesamp-modul)
@@ -214,7 +214,7 @@ echo 'export OPENPI_DATA_HOME=/raid/seokmin/openpi_data' >> ~/.bashrc
 source ~/.bashrc
 
 ------------------------------------------------------------
-### PHASE 3: Load Docker & verify GPU
+### PHASE 3: Load Docker & verify GPU ✅ DONE
 ------------------------------------------------------------
 docker load < /raid/seokmin/seokmin/docker_images/mme_vla_cuda12.8.tar.gz
 docker load < /raid/seokmin/seokmin/docker_images/nvidia_cuda12.8_base.tar.gz
