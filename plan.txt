@@ -1,4 +1,35 @@
 # A100 Setting Log
+
+=============================================================
+## Docker Quick Start (매번 컨테이너 시작할 때)
+=============================================================
+# 1. 컨테이너 실행
+cd /raid/seokmin/seokmin/robomme_policy_learning
+docker run --rm -it --gpus all \
+  --ipc=host \
+  --security-opt seccomp=unconfined \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video \
+  -e OPENPI_DATA_HOME=/openpi_data \
+  -e HF_HOME=/hf_cache \
+  -e TRANSFORMERS_OFFLINE=1 \
+  -e WANDB_MODE=offline \
+  -v /raid/seokmin/openpi_data:/openpi_data \
+  -v /raid/seokmin/hf_cache:/hf_cache \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets \
+  mme_vla:cuda12.8 bash
+
+# 2. 컨테이너 진입 후 항상 실행
+# pytest stub (gemma_pytorch.py가 pytest.Cache를 타입힌트로 사용, --no-dev 빌드라 미설치)
+SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
+
+# 3. robomme env 필요할 때 (평가 등)
+eval "$(micromamba shell hook --shell bash)"
+micromamba activate robomme
+
+
 # Target machine: 4x A100 80GB, Ubuntu 20.04, no internet
 # Transfer medium: 2TB USB
 # Available disk on A100: 1.3TB
@@ -240,6 +271,7 @@ docker run --rm -it --gpus all \
   -v /raid/seokmin/hf_cache:/hf_cache \
   -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
   -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets \
   mme_vla:cuda12.8 bash
 # NOTE: 'bash' override 필수 — micromamba CMD로 시작하면 system_error로 즉시 종료됨
 
@@ -250,7 +282,7 @@ micromamba activate robomme
 # All commands below are run INSIDE this container
 
 ------------------------------------------------------------
-### PHASE 5: Preprocess data (inside Docker)
+### PHASE 5: Preprocess data (inside Docker) ✅ DONE
 ------------------------------------------------------------
 # 5-1. Decompress raw h5 (~2-3 hrs)
 .venv/bin/python scripts/tarxz_h5.py decompress \
@@ -265,7 +297,12 @@ micromamba activate robomme
     --preprocessed_data_path data/robomme_preprocessed_data
 
 # 5-3. Copy reference norm_stats and compute (~3 min)
+mkdir -p runs/assets/mme_vla_suite
 cp assets/norm_stats.json runs/assets/mme_vla_suite/
+# NOTE: pytest stub 필요 — Dockerfile이 --no-dev로 빌드돼서 pytest 미설치
+# gemma_pytorch.py가 pytest.Cache를 타입힌트로 써서 import 시 필요
+SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
 .venv/bin/python scripts/compute_norm_stats.py \
     --config-name mme_vla_suite \
     --repo-id robomme \
@@ -316,6 +353,10 @@ bash scripts/eval.sh
     --dataset_type vlm_subgoal_qwenvl \
     --raw_data_path data/robomme_data_h5 \
     --preprocessed_data_path data/robomme_preprocessed_data
+
+# ⚠️ 8-1 완료 후 raw h5 삭제 가능 (~500GB 확보)
+# 단, vlm_subgoal_memer 빌드 (다른 선행연구)도 h5 필요 — 해당 연구 구현 계획 없으면 삭제 OK
+# rm -rf data/robomme_data_h5
 
 # 8-2. Fine-tune Qwen3-VL on grounded subgoals (inside micromamba robomme env)
 # Edit scripts/finetune_vlm_subgoal_predictor.sh:
