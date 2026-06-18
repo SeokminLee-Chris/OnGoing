@@ -354,3 +354,9 @@ uv run scripts/compute_results.py \
     --model_dir symbolic-grounded-subgoal \
     --ckpt_list ckpt79999 \
     --seed_list seed7
+
+=============================================================
+## Backup Memo
+=============================================================
+- After PHASE 2 completed, backed up A100's /raid/seokmin/ to:
+  H200 workstation: /raid/workspace/seokmin/Memory/
