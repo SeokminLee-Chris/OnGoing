@@ -223,12 +223,14 @@ docker load < /raid/seokmin/seokmin/docker_images/nvidia_cuda12.8_base.tar.gz
 docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu24.04 nvidia-smi
 
 ------------------------------------------------------------
-### PHASE 4: Start Docker container (keep alive for all steps)
+### PHASE 4: Start Docker container (keep alive for all steps) ✅ DONE
 ------------------------------------------------------------
 # Run from /raid/seokmin/seokmin/robomme_policy_learning
 cd /raid/seokmin/seokmin/robomme_policy_learning
 
 docker run --rm -it --gpus all \
+  --ipc=host \
+  --security-opt seccomp=unconfined \
   -e NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video \
   -e OPENPI_DATA_HOME=/openpi_data \
   -e HF_HOME=/hf_cache \
@@ -238,7 +240,12 @@ docker run --rm -it --gpus all \
   -v /raid/seokmin/hf_cache:/hf_cache \
   -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
   -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
-  mme_vla:cuda12.8
+  mme_vla:cuda12.8 bash
+# NOTE: 'bash' override 필수 — micromamba CMD로 시작하면 system_error로 즉시 종료됨
+
+# micromamba robomme 환경 활성화 (평가 등 robomme 패키지 필요할 때)
+eval "$(micromamba shell hook --shell bash)"
+micromamba activate robomme
 
 # All commands below are run INSIDE this container
 
@@ -246,20 +253,20 @@ docker run --rm -it --gpus all \
 ### PHASE 5: Preprocess data (inside Docker)
 ------------------------------------------------------------
 # 5-1. Decompress raw h5 (~2-3 hrs)
-uv run scripts/tarxz_h5.py decompress \
+python scripts/tarxz_h5.py decompress \
     --input_dir data/robomme_data_h5 \
     --jobs 16 \
     --remove_archive
 
 # 5-2. Build preprocessed pkl dataset (~2-3 hrs)
-uv run scripts/build_dataset.py \
+python scripts/build_dataset.py \
     --dataset_type robomme_pkl \
     --raw_data_path data/robomme_data_h5 \
     --preprocessed_data_path data/robomme_preprocessed_data
 
 # 5-3. Copy reference norm_stats and compute (~3 min)
 cp assets/norm_stats.json runs/assets/mme_vla_suite/
-uv run scripts/compute_norm_stats.py \
+python scripts/compute_norm_stats.py \
     --config-name mme_vla_suite \
     --repo-id robomme \
     --dataset-path data/robomme_preprocessed_data
