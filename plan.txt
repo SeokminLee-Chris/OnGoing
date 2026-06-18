@@ -320,7 +320,8 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
     --fsdp-devices=4 \
     --dataset-path=data/robomme_preprocessed_data \
     --model.use_history \
-    --model.history_config="perceptual-framesamp-modul.yaml"
+    --model.history_config="perceptual-framesamp-modul.yaml" \
+    --overwrite
 
 # Checkpoint → runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/
 
@@ -379,7 +380,8 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
     --fsdp-devices=4 \
     --dataset-path=data/robomme_preprocessed_data \
     --model.use_history \
-    --model.history_config="symbolic-grounded-subgoal.yaml"
+    --model.history_config="symbolic-grounded-subgoal.yaml" \
+    --overwrite
 
 # Checkpoint → runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/
 
