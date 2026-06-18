@@ -312,7 +312,7 @@ echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
 ### PHASE 6: Train FrameSamp+Perceptual (perceptual-framesamp-modul)
 ------------------------------------------------------------
 # Inside Docker
-CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
+CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABLE=1 \
 .venv/bin/python scripts/train.py mme_vla_suite \
     --exp-name=perceptual-framesamp-modul \
     --batch-size=64 \
@@ -371,7 +371,7 @@ micromamba run -n robomme bash scripts/finetune_vlm_subgoal_predictor.sh
 ### PHASE 9: Train Symbolic+Grounded (symbolic-grounded-subgoal)
 ------------------------------------------------------------
 # Inside Docker
-CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
+CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABLE=1 \
 .venv/bin/python scripts/train.py mme_vla_suite \
     --exp-name=symbolic-grounded-subgoal \
     --batch-size=64 \
@@ -439,9 +439,10 @@ bash scripts/eval.sh
 
 ### [Phase 6] 훈련 중 GPU 전체 hang (nvidia-smi도 응답 없음)
 - 증상: [1]: (64,20,32)@float32 출력 후 완전 freeze, nvidia-smi hang, docker kill도 hang
-- 원인: 4 GPU FSDP init 시 NCCL deadlock (init_train_state → jax.block_until_ready)
-- 해결: 재부팅 후 1 GPU로 시작 (CUDA_VISIBLE_DEVICES=0, --fsdp-devices=1)
-- 1 GPU에서 정상 동작 확인 → 추후 4 GPU 시 NCCL_P2P_DISABLE=1 시도
+- 원인: 코드가 A40(NVLink 없음) 기준으로 작성됨. A100은 NVLink 있어서 NCCL이 자동으로
+         NVLink P2P 통신 시도 → deadlock. (init_train_state → jax.block_until_ready)
+- 해결: NCCL_P2P_DISABLE=1 추가 → PCIe fallback으로 A40처럼 동작
+- 이후 4 GPU 훈련 정상 동작 확인 ✅
 
 ### [Phase 6] tentative run 후 FileExistsError
 - 증상: tentative run 완료 후 checkpoint directory already exists 에러
