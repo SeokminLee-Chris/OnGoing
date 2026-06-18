@@ -149,7 +149,7 @@ F:\seokmin\
 [x] Step 5: Download raw dataset (downloading on Windows → USB)
 [x] Step 6: Download Qwen3-VL-4B-Instruct (downloading on Windows → USB)
 [ ] Step 7: On A100 — load Docker image, verify GPU
-[x] Step 8: On A100 — set up directory structure (PHASE 1 done)
+[x] Step 8: On A100 — set up directory structure (PHASE 1 & 2 done)
 [ ] Step 9: On A100 — preprocess raw dataset inside container
 [ ] Step 10: On A100 — train FrameSamp+Perceptual (perceptual-framesamp-modul)
 [ ] Step 11: On A100 — evaluate FrameSamp+Perceptual
@@ -185,7 +185,7 @@ cp -r /mnt/usb/seokmin/robomme_policy_learning_full /raid/seokmin/seokmin/robomm
 # → third_party/robomme_benchmark/ should now be populated
 
 ------------------------------------------------------------
-### PHASE 2: Set up host directory structure
+### PHASE 2: Set up host directory structure ✅ DONE
 ------------------------------------------------------------
 # Set up OPENPI_DATA_HOME
 mkdir -p /raid/seokmin/openpi_data
