@@ -93,12 +93,12 @@
 - Downloading raw data (~56.4 GB) directly to USB:
     git clone https://huggingface.co/datasets/Yinpei/robomme_data_h5 F:\seokmin\robomme_data_h5
 - On A100 inside container (preprocess, ~2-3 hrs, expands to ~384 GB):
-    uv run scripts/tarxz_h5.py decompress --input_dir data/robomme_data_h5 --jobs 16 --remove_archive
+    .venv/bin/python scripts/tarxz_h5.py decompress --input_dir data/robomme_data_h5 --jobs 16 --remove_archive
 - VLM subgoal dataset: NO separate download needed!
     → generated from robomme_data_h5 on A100 via:
-    uv run scripts/build_dataset.py --dataset_type vlm_subgoal_qwenvl \
+    .venv/bin/python scripts/build_dataset.py --dataset_type vlm_subgoal_qwenvl \
         --raw_data_path data/robomme_data_h5 --preprocessed_data_path data/robomme_preprocessed_data
-    uv run scripts/build_dataset.py --dataset_type vlm_subgoal_memer \
+    .venv/bin/python scripts/build_dataset.py --dataset_type vlm_subgoal_memer \
         --raw_data_path data/robomme_data_h5 --preprocessed_data_path data/robomme_preprocessed_data
 
 ### 8. Qwen3-VL-4B-Instruct ✅ DONE
@@ -253,20 +253,20 @@ micromamba activate robomme
 ### PHASE 5: Preprocess data (inside Docker)
 ------------------------------------------------------------
 # 5-1. Decompress raw h5 (~2-3 hrs)
-python scripts/tarxz_h5.py decompress \
+.venv/bin/python scripts/tarxz_h5.py decompress \
     --input_dir data/robomme_data_h5 \
     --jobs 16 \
     --remove_archive
 
 # 5-2. Build preprocessed pkl dataset (~2-3 hrs)
-python scripts/build_dataset.py \
+.venv/bin/python scripts/build_dataset.py \
     --dataset_type robomme_pkl \
     --raw_data_path data/robomme_data_h5 \
     --preprocessed_data_path data/robomme_preprocessed_data
 
 # 5-3. Copy reference norm_stats and compute (~3 min)
 cp assets/norm_stats.json runs/assets/mme_vla_suite/
-python scripts/compute_norm_stats.py \
+.venv/bin/python scripts/compute_norm_stats.py \
     --config-name mme_vla_suite \
     --repo-id robomme \
     --dataset-path data/robomme_preprocessed_data
@@ -276,7 +276,7 @@ python scripts/compute_norm_stats.py \
 ------------------------------------------------------------
 # Inside Docker
 CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
-uv run scripts/train.py mme_vla_suite \
+.venv/bin/python scripts/train.py mme_vla_suite \
     --exp-name=perceptual-framesamp-modul \
     --batch-size=64 \
     --num-workers=4 \
@@ -303,7 +303,7 @@ bash scripts/eval.sh
 # Results → runs/evaluation/perceptual-framesamp-modul/ckpt79999/seed7/
 
 # Gather final numbers:
-uv run scripts/compute_results.py \
+.venv/bin/python scripts/compute_results.py \
     --model_dir perceptual-framesamp-modul \
     --ckpt_list ckpt79999 \
     --seed_list seed7
@@ -312,7 +312,7 @@ uv run scripts/compute_results.py \
 ### PHASE 8: Train VLM Subgoal Predictor (for Symbolic+Grounded)
 ------------------------------------------------------------
 # 8-1. Build VLM subgoal training data (~30-60 min)
-uv run scripts/build_dataset.py \
+.venv/bin/python scripts/build_dataset.py \
     --dataset_type vlm_subgoal_qwenvl \
     --raw_data_path data/robomme_data_h5 \
     --preprocessed_data_path data/robomme_preprocessed_data
@@ -331,7 +331,7 @@ micromamba run -n robomme bash scripts/finetune_vlm_subgoal_predictor.sh
 ------------------------------------------------------------
 # Inside Docker
 CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
-uv run scripts/train.py mme_vla_suite \
+.venv/bin/python scripts/train.py mme_vla_suite \
     --exp-name=symbolic-grounded-subgoal \
     --batch-size=64 \
     --num-workers=4 \
@@ -357,7 +357,7 @@ bash scripts/eval.sh
 # Results → runs/evaluation/symbolic-grounded-subgoal/ckpt79999/seed7/
 
 # Gather final numbers:
-uv run scripts/compute_results.py \
+.venv/bin/python scripts/compute_results.py \
     --model_dir symbolic-grounded-subgoal \
     --ckpt_list ckpt79999 \
     --seed_list seed7
