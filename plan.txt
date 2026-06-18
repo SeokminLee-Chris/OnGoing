@@ -2,6 +2,8 @@
 # Target machine: 4x A100 80GB, Ubuntu 20.04, no internet
 # Transfer medium: 2TB USB
 # Available disk on A100: 1.3TB
+# A100 home dir: /raid/seokmin/   (i.e., ~ = /raid/seokmin)
+# A100 project dir: /raid/seokmin/seokmin/   (USB contents copied here)
 
 =============================================================
 ## Development Workflow
@@ -17,7 +19,7 @@
     2. git add / commit / push → OnGoing repo
     3. Download/clone OnGoing on a machine with internet (home 4090 or Windows)
     4. Transfer robomme_policy_learning/ to A100 via USB
-       → replace ~/seokmin/robomme_policy_learning/ on A100 with downloaded version
+       → replace /raid/seokmin/seokmin/robomme_policy_learning/ on A100 with downloaded version
     5. Run on A100, check results / errors
     6. If error → paste logs here → fix on Windows → repeat from step 2
 
@@ -106,7 +108,7 @@
     git clone https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct F:\seokmin\Qwen3-VL-4B-Instruct
 - Place on A100 at: ~/Qwen3-VL-4B-Instruct (or any path)
 - On A100, set HF_HOME so transformers finds it offline:
-    export HF_HOME=~/hf_cache
+    export HF_HOME=/raid/seokmin/hf_cache
     # or set TRANSFORMERS_OFFLINE=1 and put model in HF cache structure
 
 =============================================================
@@ -147,7 +149,7 @@ F:\seokmin\
 [x] Step 5: Download raw dataset (downloading on Windows → USB)
 [x] Step 6: Download Qwen3-VL-4B-Instruct (downloading on Windows → USB)
 [ ] Step 7: On A100 — load Docker image, verify GPU
-[ ] Step 8: On A100 — set up directory structure, mount volumes
+[x] Step 8: On A100 — set up directory structure (PHASE 1 done)
 [ ] Step 9: On A100 — preprocess raw dataset inside container
 [ ] Step 10: On A100 — train FrameSamp+Perceptual (perceptual-framesamp-modul)
 [ ] Step 11: On A100 — evaluate FrameSamp+Perceptual
@@ -162,7 +164,7 @@ F:\seokmin\
 - pi05_base must be at:           $OPENPI_DATA_HOME/openpi-assets/checkpoints/pi05_base/
 - Qwen3-VL path is hardcoded in examples/robomme/subgoal_prediction/qwenvl/api.py
   as 'Qwen/Qwen3-VL-4B-Instruct' → HF cache must follow this exact structure:
-  ~/hf_cache/hub/models--Qwen--Qwen3-VL-4B-Instruct/
+  /raid/seokmin/hf_cache/hub/models--Qwen--Qwen3-VL-4B-Instruct/
 
 =============================================================
 ## A100 Commands (run in order)
@@ -172,50 +174,50 @@ F:\seokmin\
 ### PHASE 1: Reorganize seokmin directory
 ------------------------------------------------------------
 # Before replacing robomme_policy_learning, move docker tars out first
-mkdir -p ~/seokmin/docker_images
-mv ~/seokmin/robomme_policy_learning/mme_vla_cuda12.8.tar.gz ~/seokmin/docker_images/
-mv ~/seokmin/robomme_policy_learning/nvidia_cuda12.8_base.tar.gz ~/seokmin/docker_images/
+mkdir -p /raid/seokmin/seokmin/docker_images
+mv /raid/seokmin/seokmin/robomme_policy_learning/mme_vla_cuda12.8.tar.gz /raid/seokmin/seokmin/docker_images/
+mv /raid/seokmin/seokmin/robomme_policy_learning/nvidia_cuda12.8_base.tar.gz /raid/seokmin/seokmin/docker_images/
 
 # Now replace robomme_policy_learning with the complete recursive clone (from USB)
 # (USB has the full repo with third_party/robomme_benchmark populated)
-rm -rf ~/seokmin/robomme_policy_learning
-cp -r /mnt/usb/seokmin/robomme_policy_learning_full ~/seokmin/robomme_policy_learning
+rm -rf /raid/seokmin/seokmin/robomme_policy_learning
+cp -r /mnt/usb/seokmin/robomme_policy_learning_full /raid/seokmin/seokmin/robomme_policy_learning
 # → third_party/robomme_benchmark/ should now be populated
 
 ------------------------------------------------------------
 ### PHASE 2: Set up host directory structure
 ------------------------------------------------------------
 # Set up OPENPI_DATA_HOME
-mkdir -p ~/openpi_data
-cp -r ~/seokmin/openpi_cache/openpi-assets ~/openpi_data/
-cp -r ~/seokmin/openpi_cache/big_vision ~/openpi_data/
-cp -r ~/seokmin/pi05_vision_encoder ~/openpi_data/pi05_vision_encoder
-chmod -R 755 ~/openpi_data
+mkdir -p /raid/seokmin/openpi_data
+cp -r /raid/seokmin/seokmin/openpi_cache/openpi-assets /raid/seokmin/openpi_data/
+cp -r /raid/seokmin/seokmin/openpi_cache/big_vision /raid/seokmin/openpi_data/
+cp -r /raid/seokmin/seokmin/pi05_vision_encoder /raid/seokmin/openpi_data/pi05_vision_encoder
+chmod -R 755 /raid/seokmin/openpi_data
 
 # Set up Qwen HF cache (TRANSFORMERS_OFFLINE needs this exact structure)
-mkdir -p ~/hf_cache/hub
-cp -r ~/seokmin/Qwen3-VL-4B-Instruct \
-    ~/hf_cache/hub/models--Qwen--Qwen3-VL-4B-Instruct
+mkdir -p /raid/seokmin/hf_cache/hub
+cp -r /raid/seokmin/seokmin/Qwen3-VL-4B-Instruct \
+    /raid/seokmin/hf_cache/hub/models--Qwen--Qwen3-VL-4B-Instruct
 
 # Copy raw dataset into repo data dir
-mkdir -p ~/seokmin/robomme_policy_learning/data
-cp -r ~/seokmin/robomme_data_h5 \
-    ~/seokmin/robomme_policy_learning/data/robomme_data_h5
+mkdir -p /raid/seokmin/seokmin/robomme_policy_learning/data
+cp -r /raid/seokmin/seokmin/robomme_data_h5 \
+    /raid/seokmin/seokmin/robomme_policy_learning/data/robomme_data_h5
 
 # Create runs dir (checkpoints + eval results go here, persisted outside Docker)
-mkdir -p ~/seokmin/robomme_policy_learning/runs/ckpts
-mkdir -p ~/seokmin/robomme_policy_learning/runs/evaluation
-mkdir -p ~/seokmin/robomme_policy_learning/runs/assets/mme_vla_suite
+mkdir -p /raid/seokmin/seokmin/robomme_policy_learning/runs/ckpts
+mkdir -p /raid/seokmin/seokmin/robomme_policy_learning/runs/evaluation
+mkdir -p /raid/seokmin/seokmin/robomme_policy_learning/runs/assets/mme_vla_suite
 
 # Add to ~/.bashrc
-echo 'export OPENPI_DATA_HOME=~/openpi_data' >> ~/.bashrc
+echo 'export OPENPI_DATA_HOME=/raid/seokmin/openpi_data' >> ~/.bashrc
 source ~/.bashrc
 
 ------------------------------------------------------------
 ### PHASE 3: Load Docker & verify GPU
 ------------------------------------------------------------
-docker load < ~/seokmin/docker_images/mme_vla_cuda12.8.tar.gz
-docker load < ~/seokmin/docker_images/nvidia_cuda12.8_base.tar.gz
+docker load < /raid/seokmin/seokmin/docker_images/mme_vla_cuda12.8.tar.gz
+docker load < /raid/seokmin/seokmin/docker_images/nvidia_cuda12.8_base.tar.gz
 
 # Verify GPU
 docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu24.04 nvidia-smi
@@ -223,8 +225,8 @@ docker run --rm --gpus all nvidia/cuda:12.8.0-base-ubuntu24.04 nvidia-smi
 ------------------------------------------------------------
 ### PHASE 4: Start Docker container (keep alive for all steps)
 ------------------------------------------------------------
-# Run from ~/seokmin/robomme_policy_learning
-cd ~/seokmin/robomme_policy_learning
+# Run from /raid/seokmin/seokmin/robomme_policy_learning
+cd /raid/seokmin/seokmin/robomme_policy_learning
 
 docker run --rm -it --gpus all \
   -e NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video \
@@ -232,10 +234,10 @@ docker run --rm -it --gpus all \
   -e HF_HOME=/hf_cache \
   -e TRANSFORMERS_OFFLINE=1 \
   -e WANDB_MODE=offline \
-  -v ~/openpi_data:/openpi_data \
-  -v ~/hf_cache:/hf_cache \
-  -v ~/seokmin/robomme_policy_learning/data:/app/data \
-  -v ~/seokmin/robomme_policy_learning/runs:/app/runs \
+  -v /raid/seokmin/openpi_data:/openpi_data \
+  -v /raid/seokmin/hf_cache:/hf_cache \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
   mme_vla:cuda12.8
 
 # All commands below are run INSIDE this container
