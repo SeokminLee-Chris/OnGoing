@@ -1,6 +1,17 @@
 # A100 Setting Log
 
 =============================================================
+## ⚠️ WARNING: A100 코드 업데이트 시 주의
+=============================================================
+A100의 robomme_policy_learning/ 안에는 data/, runs/ 등 대용량 데이터가 있음.
+Windows PC에서 코드 수정 후 A100에 반영할 때 절대 repo 전체를 덮어쓰지 말 것!
+
+안전한 방법:
+  - src/ 만 복사: cp -r robomme_policy_learning/src/ /raid/.../robomme_policy_learning/src/
+  - 또는 scripts/, assets/ 등 수정한 디렉토리만 골라서 복사
+  - data/, runs/ 는 절대 건드리지 말 것
+
+=============================================================
 ## Future TODO (not necessary)
 =============================================================
 - [ ] NVLink 활성화: 현재 NCCL_P2P_DISABLE=1 (PCIe fallback)으로 훈련 중
