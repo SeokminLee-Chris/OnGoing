@@ -40,7 +40,9 @@ docker run --rm -it --gpus all \
   -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
   -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
   -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
   mme_vla:cuda12.8 bash
+# NOTE: third_party/robomme_benchmark 마운트는 eval(Phase 7, 10)에 필요. 훈련(train.py)은 불필요하나 마운트해도 무해
 
 # 2. 컨테이너 진입 후 항상 실행
 # pytest stub (gemma_pytorch.py가 pytest.Cache를 타입힌트로 사용, --no-dev 빌드라 미설치)
@@ -294,7 +296,9 @@ docker run --rm -it --gpus all \
   -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
   -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
   -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
   mme_vla:cuda12.8 bash
+# NOTE: third_party/robomme_benchmark 마운트는 eval(Phase 7, 10)에 필요. 훈련(train.py)은 불필요하나 마운트해도 무해
 # NOTE: 'bash' override 필수 — micromamba CMD로 시작하면 system_error로 즉시 종료됨
 
 # micromamba robomme 환경 활성화 (평가 등 robomme 패키지 필요할 때)
@@ -352,6 +356,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
 ------------------------------------------------------------
 ### PHASE 7: Evaluate FrameSamp+Perceptual
 ------------------------------------------------------------
+# ⚠️ 컨테이너 재시작 필요 시 third_party/robomme_benchmark 마운트 확인 (Phase 4 커맨드 참고)
 # eval.sh uses tmux internally (two windows: serve_policy + eval)
 # Edit eval.sh before running:
 #   MODEL_TYPE="perceptual-framesamp-modul"
