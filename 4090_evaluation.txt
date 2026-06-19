@@ -24,7 +24,7 @@
 #               └── norm_stats.json               ← A100에서 scp
 
 =============================================================
-## STEP 0: A100에 third_party/robomme_benchmark 확인 및 배치 (A100에서)
+## STEP 0: A100에 third_party/robomme_benchmark 확인 및 배치 (A100에서) ✅ DONE
 =============================================================
 # USB 최초 복사(Phase 1)로 이미 있을 수 있음 — 먼저 확인
 ls /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark/
@@ -34,7 +34,7 @@ ls /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark/
 #   /raid/seokmin/seokmin/robomme_policy_learning/third_party/
 
 =============================================================
-## STEP 1: 디렉토리 생성 (4090에서)
+## STEP 1: 디렉토리 생성 (4090에서) ✅ DONE
 =============================================================
 mkdir -p ~/seokmin/memory/openpi_data
 mkdir -p ~/seokmin/memory/hf_cache
@@ -43,7 +43,7 @@ mkdir -p ~/seokmin/memory/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul
 mkdir -p ~/seokmin/memory/runs/assets/mme_vla_suite
 
 =============================================================
-## STEP 2: A100 → 4090 Docker 이미지 전송 (4090에서)
+## STEP 2: A100 → 4090 Docker 이미지 전송 (4090에서) ✅ DONE
 =============================================================
 # 중간 파일 없이 스트림으로 직접 로드 (~20GB)
 ssh dsa@192.168.0.5 "docker save mme_vla:cuda12.8 | gzip" | docker load
@@ -54,7 +54,7 @@ docker run --rm --gpus all mme_vla:cuda12.8 nvidia-smi
 # ✅ A100 훈련 중 실행해도 안전 (이미지 레이어는 read-only)
 
 =============================================================
-## STEP 3: A100 → 4090 파일 전송 (4090에서)
+## STEP 3: A100 → 4090 파일 전송 (4090에서) ✅ DONE
 =============================================================
 # openpi_data (~17GB)
 scp -r dsa@192.168.0.5:/raid/seokmin/openpi_data/ ~/seokmin/memory/openpi_data/
@@ -71,7 +71,7 @@ scp dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/runs/assets/mm
 # scp -r dsa@192.168.0.5:/raid/seokmin/hf_cache/ ~/seokmin/memory/hf_cache/
 
 =============================================================
-## STEP 4: 공개 체크포인트 배치 (외부망 컴퓨터에서 다운 후 이동)
+## STEP 4: 공개 체크포인트 배치 (외부망 컴퓨터에서 다운 후 이동) ✅ DONE
 =============================================================
 # [외부망 컴퓨터에서] HuggingFace 브라우저로 직접 다운로드
 #
@@ -88,7 +88,7 @@ scp dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/runs/assets/mm
 #   ~/seokmin/memory/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/79999/
 
 =============================================================
-## STEP 5: Docker 컨테이너 실행 (4090에서)
+## STEP 5: Docker 컨테이너 실행 (4090에서) ✅ DONE
 =============================================================
 docker run --rm -it --gpus all \
   --ipc=host \
@@ -105,7 +105,7 @@ docker run --rm -it --gpus all \
   mme_vla:cuda12.8 bash
 
 =============================================================
-## STEP 6: 컨테이너 진입 후 설정
+## STEP 6: 컨테이너 진입 후 설정 ✅ DONE
 =============================================================
 # pytest stub
 SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
@@ -118,7 +118,7 @@ sed -i 's/uv run scripts\/serve_policy/.venv\/bin\/python scripts\/serve_policy/
 grep "serve_policy" scripts/eval.sh
 
 =============================================================
-## STEP 7: 체크포인트 unzip (zip 형태인 경우)
+## STEP 7: 체크포인트 unzip (zip 형태인 경우) ✅ DONE
 =============================================================
 ls runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/79999/
 
