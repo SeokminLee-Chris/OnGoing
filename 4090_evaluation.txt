@@ -190,6 +190,8 @@ tmux attach -t <session_name>      # 세션 붙기
 # 창 목록: Ctrl+b → w
 # 세션 detach (나오기): Ctrl+b → d
 
+# ← we are here now
+
 # 결과 확인
 .venv/bin/python scripts/compute_results.py \
   --model_dir perceptual-framesamp-modul \
