@@ -179,7 +179,16 @@ ls runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/79999/
 
 bash scripts/eval.sh
 
-# tmux 붙기: tmux attach -t <session_name>
+# 로그 확인하려면 새 터미널에서:
+docker ps                          # container_id 확인
+docker exec -it <container_id> bash
+
+# 컨테이너 안에서:
+tmux list-sessions                 # session_name 확인
+tmux attach -t <session_name>      # 세션 붙기
+# 창 전환: Ctrl+b → n (다음 창)
+# 창 목록: Ctrl+b → w
+# 세션 detach (나오기): Ctrl+b → d
 
 # 결과 확인
 .venv/bin/python scripts/compute_results.py \
