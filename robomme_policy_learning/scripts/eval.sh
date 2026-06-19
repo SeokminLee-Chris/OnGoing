@@ -94,7 +94,7 @@ tmux has-session -t $session_name 2>/dev/null
 if [ $? != 0 ]; then
     # Create new tmux session with first window for serve_policy
     tmux new-session -d -s $session_name -n "serve_policy" 
-    tmux send-keys -t $session_name:serve_policy "CUDA_VISIBLE_DEVICES=$GPU_ID_server uv run scripts/serve_policy.py --seed=$SEED  --port=$PORT policy:checkpoint --policy.dir=runs/ckpts/$CONFIG_TYPE/$MODEL_TYPE/$CKPT_ID --policy.config=$CONFIG_TYPE" Enter
+    tmux send-keys -t $session_name:serve_policy "CUDA_VISIBLE_DEVICES=$GPU_ID_server .venv/bin/python scripts/serve_policy.py --seed=$SEED  --port=$PORT policy:checkpoint --policy.dir=runs/ckpts/$CONFIG_TYPE/$MODEL_TYPE/$CKPT_ID --policy.config=$CONFIG_TYPE" Enter
 
     sleep 30
     
