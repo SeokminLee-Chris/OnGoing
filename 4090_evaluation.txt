@@ -94,7 +94,7 @@ scp dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/runs/assets/mm
   ~/seokmin/memory/runs/assets/mme_vla_suite/
 
 # hf_cache (Qwen3-VL ~8GB) — Phase 10(symbolic+grounded) 때만 필요, 지금은 스킵 가능
-# scp -r dsa@192.168.0.5:/raid/seokmin/hf_cache/ ~/seokmin/memory/hf_cache/
+# scp -r dsa@192.168.0.5:/raid/seokmin/hf_cache ~/seokmin/memory/
 
 =============================================================
 ## STEP 4: 공개 체크포인트 배치 (외부망 컴퓨터에서 다운 후 이동) ✅ DONE
