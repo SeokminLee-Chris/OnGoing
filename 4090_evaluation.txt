@@ -148,12 +148,16 @@ docker run --rm -it --gpus all \
 SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
 echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
 
-# eval.sh 수정은 호스트(4090)에서 직접 편집 가능 (scripts/ 마운트됨)
-# ~/seokmin/memory/scripts/eval.sh 편집:
-#   uv run → .venv/bin/python 패치 (A100에서 scp 받은 버전은 uv run 그대로일 수 있음)
-#   MODEL_TYPE, SEED, CKPT_ID, GPU_ID_server, GPU_ID_client 설정
-# 또는 컨테이너 안에서 sed로 한번에:
+# A100에서 scp 받은 eval.sh는 두 가지 패치 필요 (호스트에서 직접 수정 or 컨테이너 안에서 sed)
+
+# 패치 1: uv run → .venv/bin/python
 sed -i 's/uv run scripts\/serve_policy/.venv\/bin\/python scripts\/serve_policy/' scripts/eval.sh
+
+# 패치 2: micromamba shell hook 추가 (없으면 micromamba activate robomme 안 됨)
+sed -i 's/micromamba activate robomme/eval \"\$(micromamba shell hook --shell bash)\" \&\& micromamba activate robomme/' scripts/eval.sh
+
+# 변수 설정:
+#   MODEL_TYPE, SEED, CKPT_ID, GPU_ID_server, GPU_ID_client 확인
 
 =============================================================
 ## STEP 7: 체크포인트 unzip (zip 형태인 경우) ✅ DONE
