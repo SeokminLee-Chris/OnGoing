@@ -3,43 +3,65 @@
 #
 # 환경:
 #   - 회사 4090 (2x RTX 4090): Docker + NVIDIA driver 있음, 이미지 없음
-#   - A100:    훈련 중, 4090과 같은 네트워크. 접속: ssh dsa@192.168.0.5
-#   - 외부망 컴퓨터: HuggingFace에서 체크포인트 직접 다운로드 → 단독망으로 이동 (직접 처리)
+#   - A100: 훈련 중, 같은 네트워크. 4090에서 접속: ssh dsa@192.168.0.5
+#   - 외부망 컴퓨터: HuggingFace에서 체크포인트 직접 다운로드 → 단독망 이동 (직접 처리)
 #
-# ⚠️ eval.sh 안의 uv run은 Docker 이미지에 이미 구워져 있어서 fix가 안 됨
-#    → 컨테이너 진입 후 STEP 5에서 직접 패치
+# 4090 기본 작업 디렉토리: ~/seokmin/memory/
+#
+# 디렉토리 구조:
+#   ~/seokmin/memory/
+#   ├── openpi_data/                              ← A100에서 scp
+#   ├── hf_cache/                                 ← A100에서 scp (Phase 10만 필요)
+#   ├── third_party/
+#   │   └── robomme_benchmark/                    ← A100에서 scp → 컨테이너에 마운트
+#   └── runs/
+#       ├── ckpts/
+#       │   └── mme_vla_suite/
+#       │       └── perceptual-framesamp-modul/
+#       │           └── 79999/                    ← 외부망 컴퓨터에서 다운받은 체크포인트
+#       └── assets/
+#           └── mme_vla_suite/
+#               └── norm_stats.json               ← A100에서 scp
 
 =============================================================
-## STEP 1: A100 → 4090 Docker 이미지 전송 (4090에서 실행)
+## STEP 1: 디렉토리 생성 (4090에서)
 =============================================================
-# A100 Docker 이미지를 중간 파일 없이 스트림으로 직접 로드 (~20GB)
+mkdir -p ~/seokmin/memory/openpi_data
+mkdir -p ~/seokmin/memory/hf_cache
+mkdir -p ~/seokmin/memory/third_party
+mkdir -p ~/seokmin/memory/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul
+mkdir -p ~/seokmin/memory/runs/assets/mme_vla_suite
+
+=============================================================
+## STEP 2: A100 → 4090 Docker 이미지 전송 (4090에서)
+=============================================================
+# 중간 파일 없이 스트림으로 직접 로드 (~20GB)
 ssh dsa@192.168.0.5 "docker save mme_vla:cuda12.8 | gzip" | docker load
 
 # 검증
 docker run --rm --gpus all mme_vla:cuda12.8 nvidia-smi
 
-# ✅ 이미지 안에 third_party/robomme_benchmark 포함됨 (A100에서 빌드 시 COPY됨)
-# ✅ A100 훈련 중 실행해도 안전 (이미지 레이어는 read-only, 실행 중 컨테이너 무관)
+# ✅ A100 훈련 중 실행해도 안전 (이미지 레이어는 read-only)
 
 =============================================================
-## STEP 2: A100 → 4090 openpi_data 전송 (4090에서 실행)
+## STEP 3: A100 → 4090 파일 전송 (4090에서)
 =============================================================
-mkdir -p ~/eval_4090/openpi_data
-mkdir -p ~/eval_4090/runs/ckpts/mme_vla_suite
-mkdir -p ~/eval_4090/runs/assets/mme_vla_suite
+# openpi_data (~17GB)
+scp -r dsa@192.168.0.5:/raid/seokmin/openpi_data/ ~/seokmin/memory/openpi_data/
 
-# openpi_data: pi05_base + paligemma_tokenizer + pi05_vision_encoder (~17GB)
-scp -r dsa@192.168.0.5:/raid/seokmin/openpi_data/ ~/eval_4090/openpi_data/
+# third_party/robomme_benchmark (컨테이너에 마운트해서 사용)
+scp -r dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark \
+  ~/seokmin/memory/third_party/
 
 # norm_stats.json
 scp dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/runs/assets/mme_vla_suite/norm_stats.json \
-  ~/eval_4090/runs/assets/mme_vla_suite/
+  ~/seokmin/memory/runs/assets/mme_vla_suite/
 
-# hf_cache (Qwen3-VL ~8GB) — Phase 7은 불필요, Phase 10(symbolic+grounded) 때 필요
-# scp -r dsa@192.168.0.5:/raid/seokmin/hf_cache/ ~/eval_4090/hf_cache/
+# hf_cache (Qwen3-VL ~8GB) — Phase 10(symbolic+grounded) 때만 필요, 지금은 스킵 가능
+# scp -r dsa@192.168.0.5:/raid/seokmin/hf_cache/ ~/seokmin/memory/hf_cache/
 
 =============================================================
-## STEP 3: 공개 체크포인트 다운로드 및 배치
+## STEP 4: 공개 체크포인트 배치 (외부망 컴퓨터에서 다운 후 이동)
 =============================================================
 # [외부망 컴퓨터에서] HuggingFace 브라우저로 직접 다운로드
 #
@@ -47,20 +69,16 @@ scp dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/runs/assets/mm
 #   https://huggingface.co/Yinpei/mme_vla_suite/tree/main/perceptual-framesamp-modul/79999
 #
 # 만들어야 할 폴더 구조 (외부망 컴퓨터에서):
-#
 #   mme_vla_suite/
 #   └── perceptual-framesamp-modul/
 #       └── 79999/
 #           └── (HF에서 다운받은 파일 전부 여기에)
 #
-# → 이 폴더를 단독망 4090으로 옮긴 뒤:
-#   ~/eval_4090/runs/ckpts/ 안에 mme_vla_suite/ 폴더째로 넣기
-#
-# 최종 경로:
-#   ~/eval_4090/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/79999/
+# → 단독망 4090으로 이동 후 아래 경로에 배치:
+#   ~/seokmin/memory/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/79999/
 
 =============================================================
-## STEP 4: Docker 컨테이너 실행 (4090에서)
+## STEP 5: Docker 컨테이너 실행 (4090에서)
 =============================================================
 docker run --rm -it --gpus all \
   --ipc=host \
@@ -70,13 +88,14 @@ docker run --rm -it --gpus all \
   -e HF_HOME=/hf_cache \
   -e TRANSFORMERS_OFFLINE=1 \
   -e WANDB_MODE=offline \
-  -v ~/eval_4090/openpi_data:/openpi_data \
-  -v ~/eval_4090/hf_cache:/hf_cache \
-  -v ~/eval_4090/runs:/app/runs \
+  -v ~/seokmin/memory/openpi_data:/openpi_data \
+  -v ~/seokmin/memory/hf_cache:/hf_cache \
+  -v ~/seokmin/memory/runs:/app/runs \
+  -v ~/seokmin/memory/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
   mme_vla:cuda12.8 bash
 
 =============================================================
-## STEP 5: 컨테이너 진입 후 설정
+## STEP 6: 컨테이너 진입 후 설정
 =============================================================
 # pytest stub
 SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
@@ -89,18 +108,17 @@ sed -i 's/uv run scripts\/serve_policy/.venv\/bin\/python scripts\/serve_policy/
 grep "serve_policy" scripts/eval.sh
 
 =============================================================
-## STEP 6: 체크포인트 unzip (zip 형태인 경우)
+## STEP 7: 체크포인트 unzip (zip 형태인 경우)
 =============================================================
-# 체크포인트 파일 확인
 ls runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/79999/
 
 # zip 파일 있으면 unzip
 .venv/bin/python scripts/unzip_ckpt.py runs/ckpts
 
 =============================================================
-## STEP 7: 평가 실행 — perceptual-framesamp-modul (컨테이너 안)
+## STEP 8: 평가 실행 — perceptual-framesamp-modul (컨테이너 안)
 =============================================================
-# scripts/eval.sh 상단 변수 편집
+# scripts/eval.sh 상단 변수 편집:
 #   MODEL_TYPE="perceptual-framesamp-modul"
 #   SEED=7
 #   CKPT_ID=79999
@@ -108,9 +126,6 @@ ls runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/79999/
 #   GPU_ID_client=1    ← 4090 GPU 1 (2x4090 ✅ A100 구성과 동일)
 
 bash scripts/eval.sh
-# tmux 세션 자동 생성:
-#   창1 serve_policy: policy server (.venv/bin/python, GPU 0)
-#   창2 eval:         micromamba robomme + eval client (GPU 1)
 
 # tmux 붙기: tmux attach -t <session_name>
 
@@ -123,9 +138,8 @@ bash scripts/eval.sh
 # 결과 저장 위치: runs/evaluation/perceptual-framesamp-modul/ckpt79999/seed7/
 
 =============================================================
-## 나중에: A100 자체 훈련 체크포인트로 바꿀 때
+## 나중에: A100 자체 훈련 체크포인트로 바꿀 때 (4090에서)
 =============================================================
-# A100 훈련 완료 후 (4090에서 실행)
 scp -r dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/79999 \
-  ~/eval_4090/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/
-# → 동일하게 eval.sh 실행
+  ~/seokmin/memory/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/
+# → 동일하게 eval.sh 실행 (CKPT_ID=79999)
