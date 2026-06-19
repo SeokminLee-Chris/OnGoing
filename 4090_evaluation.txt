@@ -192,7 +192,6 @@ bash scripts/eval.sh
 #       HF에서 파일 개별 다운로드 시 이 파일을 빠뜨리면 history_config=None → 에러
 # 해결: perceptual-framesamp-modul/ 바로 아래에 history_config.txt 배치
 #       (79999/ 폴더와 같은 레벨)
-# 긴급 생성: echo "perceptual-framesamp-modul.yaml" > runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/history_config.txt
 
 =============================================================
 ## 나중에: A100 자체 훈련 체크포인트로 바꿀 때 (4090에서)
