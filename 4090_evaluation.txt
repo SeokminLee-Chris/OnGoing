@@ -24,6 +24,28 @@
 #               └── norm_stats.json               ← A100에서 scp
 
 =============================================================
+## Docker Quick Start (컨테이너 재시작할 때마다)
+=============================================================
+docker run --rm -it --gpus all \
+  --ipc=host \
+  --security-opt seccomp=unconfined \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video \
+  -e OPENPI_DATA_HOME=/openpi_data \
+  -e HF_HOME=/hf_cache \
+  -e TRANSFORMERS_OFFLINE=1 \
+  -e WANDB_MODE=offline \
+  -v ~/seokmin/memory/openpi_data:/openpi_data \
+  -v ~/seokmin/memory/hf_cache:/hf_cache \
+  -v ~/seokmin/memory/runs:/app/runs \
+  -v ~/seokmin/memory/scripts:/app/scripts \
+  -v ~/seokmin/memory/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
+  mme_vla:cuda12.8 bash
+
+# 진입 후 항상 실행
+SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
+
+=============================================================
 ## STEP 0: A100에 third_party/robomme_benchmark 확인 및 배치 (A100에서) ✅ DONE
 =============================================================
 # USB 최초 복사(Phase 1)로 이미 있을 수 있음 — 먼저 확인
@@ -58,6 +80,10 @@ docker run --rm --gpus all mme_vla:cuda12.8 nvidia-smi
 =============================================================
 # openpi_data (~17GB)
 scp -r dsa@192.168.0.5:/raid/seokmin/openpi_data/ ~/seokmin/memory/openpi_data/
+
+# scripts/ (마운트해서 자유롭게 편집 가능)
+scp -r dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/scripts \
+  ~/seokmin/memory/
 
 # third_party/robomme_benchmark (컨테이너에 마운트해서 사용)
 scp -r dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark \
@@ -101,21 +127,23 @@ docker run --rm -it --gpus all \
   -v ~/seokmin/memory/openpi_data:/openpi_data \
   -v ~/seokmin/memory/hf_cache:/hf_cache \
   -v ~/seokmin/memory/runs:/app/runs \
+  -v ~/seokmin/memory/scripts:/app/scripts \
   -v ~/seokmin/memory/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
   mme_vla:cuda12.8 bash
 
 =============================================================
 ## STEP 6: 컨테이너 진입 후 설정 ✅ DONE
 =============================================================
-# pytest stub
+# pytest stub (컨테이너 안에서)
 SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
 echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
 
-# eval.sh uv run → .venv/bin/python 패치 (이미지 안에 구워진 버전 수정)
+# eval.sh 수정은 호스트(4090)에서 직접 편집 가능 (scripts/ 마운트됨)
+# ~/seokmin/memory/scripts/eval.sh 편집:
+#   uv run → .venv/bin/python 패치 (A100에서 scp 받은 버전은 uv run 그대로일 수 있음)
+#   MODEL_TYPE, SEED, CKPT_ID, GPU_ID_server, GPU_ID_client 설정
+# 또는 컨테이너 안에서 sed로 한번에:
 sed -i 's/uv run scripts\/serve_policy/.venv\/bin\/python scripts\/serve_policy/' scripts/eval.sh
-
-# 확인
-grep "serve_policy" scripts/eval.sh
 
 =============================================================
 ## STEP 7: 체크포인트 unzip (zip 형태인 경우) ✅ DONE
