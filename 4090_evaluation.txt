@@ -107,10 +107,16 @@ scp dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/runs/assets/mm
 # 만들어야 할 폴더 구조 (외부망 컴퓨터에서):
 #   mme_vla_suite/
 #   └── perceptual-framesamp-modul/
+#       ├── history_config.txt          ← ⚠️ 필수! 없으면 history_config=None 에러
 #       └── 79999/
 #           └── (HF에서 다운받은 파일 전부 여기에)
 #
+# history_config.txt 위치:
+#   https://huggingface.co/Yinpei/mme_vla_suite/tree/main/perceptual-framesamp-modul/
+#   (79999/ 폴더 밖, perceptual-framesamp-modul/ 바로 아래)
+#
 # → 단독망 4090으로 이동 후 아래 경로에 배치:
+#   ~/seokmin/memory/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/history_config.txt
 #   ~/seokmin/memory/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/79999/
 
 =============================================================
