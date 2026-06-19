@@ -18,6 +18,7 @@
 #       ├── ckpts/
 #       │   └── mme_vla_suite/
 #       │       └── perceptual-framesamp-modul/
+#       │           ├── history_config.txt         ← ⚠️ 필수! 외부망에서 다운
 #       │           └── 79999/                    ← 외부망 컴퓨터에서 다운받은 체크포인트
 #       └── assets/
 #           └── mme_vla_suite/
@@ -180,6 +181,18 @@ bash scripts/eval.sh
   --seed_list seed7
 
 # 결과 저장 위치: runs/evaluation/perceptual-framesamp-modul/ckpt79999/seed7/
+
+=============================================================
+## Error Resolving
+=============================================================
+
+### history_config.txt 누락 → AttributeError: 'NoneType' has no attribute 'integration_type'
+# 증상: serve_policy 실행 시 policy_config.py에서 AttributeError 발생
+# 원인: policy_config.py가 checkpoint_dir.parent/history_config.txt 를 읽어 history_config 설정
+#       HF에서 파일 개별 다운로드 시 이 파일을 빠뜨리면 history_config=None → 에러
+# 해결: perceptual-framesamp-modul/ 바로 아래에 history_config.txt 배치
+#       (79999/ 폴더와 같은 레벨)
+# 긴급 생성: echo "perceptual-framesamp-modul.yaml" > runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/history_config.txt
 
 =============================================================
 ## 나중에: A100 자체 훈련 체크포인트로 바꿀 때 (4090에서)
