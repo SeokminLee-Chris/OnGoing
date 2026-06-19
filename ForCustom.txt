@@ -1,0 +1,280 @@
+# ForCustom.txt
+# 목적: custom model 설계 및 훈련·평가를 위한 코드 구조 분석 + 절차 정리
+# 기준 코드: robomme_policy_learning/
+
+=============================================================
+## 1. 전체 디렉토리 구조
+=============================================================
+
+robomme_policy_learning/
+├── scripts/
+│   ├── train.py                  ← 훈련 진입점
+│   ├── serve_policy.py           ← 서빙 진입점
+│   └── eval.sh                   ← 평가 실행 스크립트
+└── src/
+    ├── openpi/                   ← 기반 모델 (Pi0, Gemma, SigLip 등) — 수정 X
+    └── mme_vla_suite/
+        ├── models/
+        │   ├── config/
+        │   │   ├── base.yaml                       ← 전체 설정 템플릿
+        │   │   └── robomme/                         ← 실험별 yaml 모음
+        │   │       ├── perceptual-framesamp-modul.yaml  ← 현재 Phase 6
+        │   │       ├── perceptual-tokendrop-modul.yaml
+        │   │       ├── recurrent-ttt-modul.yaml
+        │   │       ├── recurrent-rmt-modul.yaml
+        │   │       └── ...
+        │   ├── integration/
+        │   │   ├── history_pi0.py          ← 핵심! 전체 모델 클래스
+        │   │   ├── history_gemma.py        ← attention 레벨 통합 (modulation/expert)
+        │   │   └── history_observation.py  ← HistAugObservation 데이터 구조
+        │   └── representation/
+        │       ├── percep_mem.py           ← PerceptualMemory
+        │       ├── recur_mem.py            ← RecurrentMemory
+        │       ├── mem_encoder.py          ← FeatureEncoder (공통)
+        │       ├── ttt.py                  ← TTT 레이어
+        │       └── rmt.py                  ← RMT 레이어
+        ├── policies/
+        │   ├── policy.py                   ← MME_VLA_Policy (inference wrapper)
+        │   ├── policy_config.py            ← create_trained_policy() — ckpt 로딩
+        │   └── robomme_policy.py           ← 입출력 transforms
+        ├── serving/
+        │   └── websocket_policy_server.py  ← WebSocket 서버
+        ├── shared/
+        │   └── mem_buffer.py               ← MemoryBuffer (inference 시 런타임 버퍼)
+        └── training/
+            ├── config.py                   ← TrainConfig, get_config()
+            ├── dataset.py                  ← RoboMMEDataset
+            └── dataloader.py               ← create_data_loader()
+
+
+=============================================================
+## 2. 핵심 개념
+=============================================================
+
+### 2-A. representation_type (메모리 인코딩 방식)
+- "perceptual" : 과거 프레임을 정적으로 sampling/dropping → static token pool
+- "recurrent"  : TTT or RMT로 스트리밍 압축 → 순차적 recurrent state
+- "symbolic"   : 언어 기반 subgoal (oracle/gemini/qwenvl)
+
+### 2-B. integration_type (메모리를 모델에 넣는 방식)
+- "context"    : memory token을 prefix에 단순 concatenate
+- "modulation" : action token이 memory에 cross-attend → modulation signal
+- "expert"     : LLM에 memory expert transformer 추가 (3-expert)
+
+### 2-C. config 명명 규칙
+  {representation}-{sampling_method}-{integration}.yaml
+  예) perceptual-framesamp-modul.yaml
+      recurrent-ttt-expert.yaml
+
+
+=============================================================
+## 3. 데이터 흐름
+=============================================================
+
+### 훈련 시
+  Raw HDF5/Pickle (data/robomme_preprocessed_data)
+    → RoboMMEDataset.__getitem__()
+        └ load obs+action pair
+        └ _gather_history_feat() → 과거 프레임의 image/pos/state emb 로드
+    → repack_transforms (키 매핑)
+    → data_transforms (delta action 계산 등 로봇별 처리)
+    → Normalize(norm_stats)
+    → model_transforms (resize, tokenize, pad)
+    → HistAugObservation + Actions (batch)
+    → train_step()
+        └ 노이즈 추가 (diffusion)
+        └ HistoryPi0.compute_loss()
+            └ embed_prefix()  : memory + vision + language 토큰
+            └ embed_suffix()  : noisy action 토큰
+            └ PaliGemma forward
+            └ MSE loss
+        └ gradient update
+
+### 추론 시 (serve_policy → eval client)
+  관측값 dict
+    → input transforms (resize, tokenize, normalize)
+    → policy.add_buffer() → MemoryBuffer에 프레임 추가
+    → policy.infer()
+        └ _prepare_history() → 버퍼에서 memory token 준비
+        └ HistoryPi0.sample_actions()
+            └ 10-step reverse diffusion
+    → output transforms (unnormalize)
+    → actions dict
+
+
+=============================================================
+## 4. 핵심 파일 · 함수 위치
+=============================================================
+
+  파일                                          주요 클래스/함수
+  ─────────────────────────────────────────────────────────────────
+  integration/history_pi0.py L76               HistoryPi0Config
+  integration/history_pi0.py L236              HistoryPi0 (모델 본체)
+    L395  embed_memory()       ← memory token 생성
+    L418  embed_prefix()       ← prefix 구성 (memory+vision+lang)
+    L494  embed_suffix()       ← suffix 구성 (action)
+    L557  compute_loss()       ← 훈련 loss
+    L641  sample_actions()     ← inference (diffusion sampling)
+  integration/history_gemma.py L45             MemoryAttention (modulation)
+  integration/history_gemma.py L112            HistoryBlock (transformer block)
+  integration/history_observation.py L20       HistAugObservation (데이터 구조)
+
+  representation/percep_mem.py L9              PerceptualMemory
+  representation/recur_mem.py L15              RecurrentMemory
+  representation/mem_encoder.py L8             FeatureEncoder (공통 projection)
+  representation/ttt.py L26                    TTTBase
+  representation/rmt.py L19                    RMTLayer
+
+  training/config.py L457                      TrainConfig
+  training/config.py L556                      pi05_baseline config
+  training/config.py L580                      mme_vla_suite config
+  training/dataset.py L42                      RoboMMEDataset
+  training/dataloader.py L33                   create_data_loader()
+
+  policies/policy.py L18                       MME_VLA_Policy
+  policies/policy.py L77                         .infer()
+  policies/policy.py L103                        .reset()
+  policies/policy.py L111                        .add_buffer()
+  policies/policy_config.py                     create_trained_policy()
+
+  scripts/train.py L212                         train_step()
+  scripts/train.py L316                         main()
+
+
+=============================================================
+## 5. HistAugObservation 필드 구조
+=============================================================
+
+class HistAugObservation:
+    # 기본 관측값
+    images: dict[str, Array]           # base_0_rgb, left_wrist_0_rgb
+    state: Array                        # robot joint state
+    tokenized_prompt: Array
+
+    # Perceptual memory 필드
+    static_image_emb:  [b, budget, 2048]   # SigLip feature
+    static_pos_emb:    [b, budget, 768]    # 3D sinusoidal pos
+    static_state_emb:  [b, budget, 8]      # robot state
+    static_mask:       [b, budget]
+
+    # Recurrent memory 필드
+    recur_image_emb:   [b, T, V, P, 2048]  # T=timestep, V=view, P=patch
+    recur_pos_emb:     [b, T, V, P, 768]
+    recur_state_emb:   [b, T, 8]
+    recur_mask:        [b, T]
+
+    # Symbolic memory 필드
+    symbolic_tokenized_prompt:       [b, L]
+    symbolic_tokenized_prompt_mask:  [b, L]
+
+
+=============================================================
+## 6. Custom Model 추가 절차
+=============================================================
+
+새 메모리 방식 (예: "my_custom") 추가하는 전체 과정:
+
+### STEP A: YAML config 파일 생성
+  # src/mme_vla_suite/models/config/robomme/my-custom-modul.yaml
+  representation_type: my_custom
+  integration_type: modulation      # or context / expert
+  memory_token_dim: 1024
+  budget: 512
+  # 필요한 custom 파라미터 추가
+
+### STEP B: 메모리 인코더 클래스 작성
+  # src/mme_vla_suite/models/representation/my_memory.py
+  import flax.nnx as nnx
+  from .mem_encoder import FeatureEncoder
+
+  class MyCustomMemory(nnx.Module):
+      def __init__(self, config, rngs, dtype):
+          self.feature_encoder = FeatureEncoder(...)
+          # 추가 레이어 정의
+
+      def __call__(self, image_emb, pos_emb, state_emb, mask=None):
+          # 메모리 인코딩 로직
+          tokens = ...
+          return tokens, None, stats_dict   # (tokens, None, stats)
+
+### STEP C: HistAugObservation에 필드 추가 (필요 시)
+  # integration/history_observation.py
+  my_custom_image_emb: Float[Array, "b s d"] | None = None
+  # from_dict()에도 파싱 추가
+
+### STEP D: HistoryPi0에 새 타입 분기 추가
+  # integration/history_pi0.py
+
+  # __init__ (L247 근처):
+  elif self.representation_type == "my_custom":
+      from mme_vla_suite.models.representation.my_memory import MyCustomMemory
+      self.mem_encoder = MyCustomMemory(config=self.history_config, rngs=rngs, dtype=dtype)
+
+  # embed_memory() (L395 근처):
+  elif self.representation_type == "my_custom":
+      tokens, _, stats = self.mem_encoder(obs.my_custom_image_emb, ...)
+      # tokens → memory_tokens 반환
+
+### STEP E: Dataset에 데이터 로딩 추가
+  # training/dataset.py
+  elif self.history_config.representation_type == "my_custom":
+      # 필요한 특징 로딩 로직 구현
+
+### STEP F: DataConfig transform 추가
+  # training/config.py (RoboMMEDataConfig.create())
+  if loaded_config.representation_type == "my_custom":
+      # repack_transform에 필드 매핑 추가
+
+### STEP G: MemoryBuffer 런타임 지원 (추론용)
+  # shared/mem_buffer.py
+  # 필요하면 MyCustomBuffer 클래스 추가
+  # policy.py에서 add_buffer(), _prepare_history() 분기 추가
+
+### STEP H: 훈련 실행
+  .venv/bin/python scripts/train.py mme_vla_suite \
+      --exp-name=my-custom-modul \
+      --model.history_config="my-custom-modul.yaml" \
+      --batch-size=64 --num-workers=4 --fsdp-devices=4 \
+      --model.use_history \
+      --overwrite
+
+### STEP I: 평가 실행 (eval.sh 상단 변수 수정)
+  MODEL_TYPE="my-custom-modul"   # ← yaml 이름과 일치해야 함
+  CKPT_ID=79999
+  bash scripts/eval.sh
+
+
+=============================================================
+## 7. 수정 대상 파일 요약
+=============================================================
+
+  목적                        수정 파일
+  ──────────────────────────────────────────────────────────────
+  새 메모리 타입 추가          representation/my_memory.py (신규)
+                               integration/history_pi0.py (분기 추가)
+  새 integration 방식 추가     integration/history_gemma.py
+                               integration/history_pi0.py
+  config/하이퍼파라미터 변경   models/config/robomme/*.yaml
+                               training/config.py (TrainConfig 추가)
+  데이터 파이프라인 변경       training/dataset.py
+                               training/dataloader.py
+                               training/config.py (repack_transform)
+  관측값 구조 변경             integration/history_observation.py
+  추론/서빙 변경               policies/policy.py
+                               policies/robomme_policy.py
+  loss/optimizer 변경          scripts/train.py (train_step, loss_fn)
+
+
+=============================================================
+## 8. 중요 참고 사항
+=============================================================
+
+- 기반 모델: Pi0 (google/paligemma-3b) — openpi/ 수정 X
+- 이미지 인코더 (SigLip): 기본 frozen. 훈련 시 freeze_filter 참고
+- diffusion step: 기본 10 step (sample_actions)
+- 데이터 전처리: 별도로 전처리 완료된 HDF5 사용
+  (raw → preprocessed는 dataset_builder/ 참고)
+- history_config.txt: ckpt 상위 폴더에 반드시 있어야 함
+  (policy_config.py가 checkpoint_dir.parent에서 읽음)
+- representation_type + integration_type 조합으로 실험 이름 결정
+- norm_stats.json: runs/assets/mme_vla_suite/ 에 위치
