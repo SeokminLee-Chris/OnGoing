@@ -333,6 +333,8 @@ echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
 ------------------------------------------------------------
 ### PHASE 6: Train FrameSamp+Perceptual (perceptual-framesamp-modul)
 ------------------------------------------------------------
+# Training time: ~40 hours (without NVLink, NCCL_P2P_DISABLE=1, PCIe fallback)
+
 # Inside Docker
 CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABLE=1 \
 .venv/bin/python scripts/train.py mme_vla_suite \
