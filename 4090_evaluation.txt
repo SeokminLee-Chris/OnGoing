@@ -79,12 +79,11 @@ docker run --rm --gpus all mme_vla:cuda12.8 nvidia-smi
 =============================================================
 ## STEP 3: A100 → 4090 파일 전송 (4090에서) ✅ DONE
 =============================================================
-# openpi_data (~17GB)
-scp -r dsa@192.168.0.5:/raid/seokmin/openpi_data/ ~/seokmin/memory/openpi_data/
+# openpi_data (~17GB) — 부모 디렉토리를 대상으로 지정해야 openpi_data/openpi_data 이중 생성 안 됨
+scp -r dsa@192.168.0.5:/raid/seokmin/openpi_data ~/seokmin/memory/
 
 # scripts/ (마운트해서 자유롭게 편집 가능)
-scp -r dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/scripts \
-  ~/seokmin/memory/
+scp -r dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/scripts ~/seokmin/memory/
 
 # third_party/robomme_benchmark (컨테이너에 마운트해서 사용)
 scp -r dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark \
