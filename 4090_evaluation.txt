@@ -24,6 +24,16 @@
 #               └── norm_stats.json               ← A100에서 scp
 
 =============================================================
+## STEP 0: A100에 third_party/robomme_benchmark 확인 및 배치 (A100에서)
+=============================================================
+# USB 최초 복사(Phase 1)로 이미 있을 수 있음 — 먼저 확인
+ls /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark/
+
+# 비어있거나 없으면 USB(또는 OnGoing repo에서 내려받은 코드)에서 복사
+# cp -r /mnt/usb/seokmin/robomme_policy_learning/third_party/robomme_benchmark \
+#   /raid/seokmin/seokmin/robomme_policy_learning/third_party/
+
+=============================================================
 ## STEP 1: 디렉토리 생성 (4090에서)
 =============================================================
 mkdir -p ~/seokmin/memory/openpi_data
