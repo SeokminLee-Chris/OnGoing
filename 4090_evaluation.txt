@@ -46,6 +46,10 @@ docker run --rm -it --gpus all \
 SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
 echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
 
+# robomme env 필요할 때 (eval client 등)
+eval "$(micromamba shell hook --shell bash)"
+micromamba activate robomme
+
 =============================================================
 ## STEP 0: A100에 third_party/robomme_benchmark 확인 및 배치 (A100에서) ✅ DONE
 =============================================================
