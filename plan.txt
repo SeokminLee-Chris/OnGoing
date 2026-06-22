@@ -475,6 +475,14 @@ bash scripts/eval.sh
 ## 훈련 특이사항
 =============================================================
 
+### [Phase 8-9] Qwen(subgoal predictor)과 PaliGemma(policy)는 완전히 별도 훈련
+- Phase 8: Qwen finetune → GT subgoal 텍스트로 subgoal 예측 학습
+- Phase 9: PaliGemma policy 훈련 → GT subgoal 텍스트를 language token으로 직접 입력받아 학습
+  (훈련 중 Qwen은 전혀 개입하지 않음)
+- Phase 10 eval 시에만 Qwen이 실시간으로 subgoal 예측 → policy에 입력
+  → Qwen 예측이 틀리면 policy 입장에서 훈련 때 본 적 없는 입력이 들어오는 것 → 성능 급락 가능
+  → Phase 8 Qwen finetune 품질이 Phase 10 최종 성능을 사실상 결정함
+
 ### [Phase 8] VLM Subgoal Predictor 데이터 빌드 & 훈련
 - build_dataset.py --dataset_type vlm_subgoal_qwenvl 한 번 실행으로 simple + grounded 둘 다 생성됨
   → data/robomme_preprocessed_data/qwenvl/simple_subgoal_train.jsonl
