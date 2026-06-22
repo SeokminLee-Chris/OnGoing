@@ -339,7 +339,7 @@ echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
     --dataset-path data/robomme_preprocessed_data
 
 ------------------------------------------------------------
-### PHASE 6: Train FrameSamp+Perceptual (perceptual-framesamp-modul)
+### PHASE 6: Train FrameSamp+Perceptual (perceptual-framesamp-modul) ✅ DONE
 ------------------------------------------------------------
 # Training time: ~40 hours (without NVLink, NCCL_P2P_DISABLE=1, PCIe fallback)
 
@@ -358,26 +358,13 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
 # Checkpoint → runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/
 
 ------------------------------------------------------------
-### PHASE 7: Evaluate FrameSamp+Perceptual
+### PHASE 7: Evaluate FrameSamp+Perceptual ✅ DONE
 ------------------------------------------------------------
-# ⚠️ 컨테이너 재시작 필요 시 third_party/robomme_benchmark 마운트 확인 (Phase 4 커맨드 참고)
-# eval.sh uses tmux internally (two windows: serve_policy + eval)
-# Edit eval.sh before running:
-#   MODEL_TYPE="perceptual-framesamp-modul"
-#   SEED=7
-#   CKPT_ID=79999
-#   GPU_ID_server=0
-#   GPU_ID_client=1
-
-bash scripts/eval.sh
-
-# Results → runs/evaluation/perceptual-framesamp-modul/ckpt79999/seed7/
-
-# Gather final numbers:
-.venv/bin/python scripts/compute_results.py \
-    --model_dir perceptual-framesamp-modul \
-    --ckpt_list ckpt79999 \
-    --seed_list seed7
+# ⚠️ 실행 위치: 회사 4090 (2x RTX 4090)
+# 상세 절차: 4090_evaluation.txt 참고
+#
+# [완료] 공개 체크포인트(HuggingFace Yinpei/mme_vla_suite, ckpt 79999)로 eval 환경 정상 확인
+# [예정] A100 훈련 체크포인트로 교체 후 재실행 → 훈련 결과 정상 여부 확인
 
 ------------------------------------------------------------
 ### PHASE 8: Train VLM Subgoal Predictor (for Symbolic+Grounded)
@@ -483,6 +470,22 @@ bash scripts/eval.sh
 - 증상: tentative run 완료 후 checkpoint directory already exists 에러
 - 원인: train.py가 main()을 두 번 호출 (tentative → 본 훈련), 두 번째 호출 시 디렉토리 충돌
 - 해결: --overwrite 플래그 추가
+
+=============================================================
+## 훈련 특이사항
+=============================================================
+
+### [Phase 8] VLM Subgoal Predictor 데이터 빌드 & 훈련
+- build_dataset.py --dataset_type vlm_subgoal_qwenvl 한 번 실행으로 simple + grounded 둘 다 생성됨
+  → data/robomme_preprocessed_data/qwenvl/simple_subgoal_train.jsonl
+  → data/robomme_preprocessed_data/qwenvl/grounded_subgoal_train.jsonl
+  (같은 keyframe 이미지, label만 다름: grounded는 bounding box 포함)
+
+- finetune은 simple / grounded 각각 별도 실행 필요 (별도 체크포인트)
+  스크립트 기본값이 simple_subgoal로 세팅돼 있으므로,
+  grounded 훈련 시 finetune_vlm_subgoal_predictor.sh 상단 변수 반드시 수정:
+    DATASET_PATH='data/robomme_preprocessed_data/qwenvl/grounded_subgoal_train.jsonl'
+    OUTPUT_DIR='runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal'
 
 =============================================================
 ## Backup Memo

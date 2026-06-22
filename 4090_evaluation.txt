@@ -190,8 +190,6 @@ tmux attach -t <session_name>      # 세션 붙기
 # 창 목록: Ctrl+b → w
 # 세션 detach (나오기): Ctrl+b → d
 
-# ← we are here now
-
 # 결과 확인
 .venv/bin/python scripts/compute_results.py \
   --model_dir perceptual-framesamp-modul \
@@ -217,3 +215,7 @@ tmux attach -t <session_name>      # 세션 붙기
 scp -r dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/79999 \
   ~/seokmin/memory/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/
 # → 동일하게 eval.sh 실행 (CKPT_ID=79999)
+
+=============================================================
+# perfect. we are done
+=============================================================
