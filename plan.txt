@@ -480,6 +480,8 @@ bash scripts/eval.sh
 - 미리 전체 subgoal을 뽑아두는 것이 아님
 - subgoal이 이전과 달라지면 history에 누적 → 다음 step의 context로 사용
 - (예) "방 청소": step 0 → "쓰레기 집어라" 유지 → 이미지 변화 감지 → "쓰레기통에 버려라"로 전환
+- 같은 subgoal이 연속으로 나와도 history에는 한 번만 추가 (마지막 항목과 다를 때만 append)
+  → 100 step 동안 "쓰레기 집어라"가 나와도 history = ["쓰레기 집어라"] 유지
 
 ### [Phase 8-9] Qwen(subgoal predictor)과 PaliGemma(policy)는 완전히 별도 훈련
 - Phase 8: Qwen finetune → GT subgoal 텍스트로 subgoal 예측 학습
