@@ -426,6 +426,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
     --overwrite
 
 # Checkpoint → runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/
+# NOTE: 훈련 시 Qwen 개입 없음. 데이터셋 h5의 GT grounded_subgoal 텍스트를 language token으로 직접 입력
 
 ------------------------------------------------------------
 ### PHASE 10: Evaluate Symbolic+Grounded + QwenVL
