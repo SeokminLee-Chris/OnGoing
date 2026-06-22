@@ -40,6 +40,7 @@ docker run --rm -it --gpus all \
   -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
   -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
   -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/scripts:/app/scripts \
   -v /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
   mme_vla:cuda12.8 bash
 # NOTE: third_party/robomme_benchmark 마운트는 eval(Phase 7, 10)에 필요. 훈련(train.py)은 불필요하나 마운트해도 무해
@@ -300,6 +301,7 @@ docker run --rm -it --gpus all \
   -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
   -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
   -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/scripts:/app/scripts \
   -v /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
   mme_vla:cuda12.8 bash
 # NOTE: third_party/robomme_benchmark 마운트는 eval(Phase 7, 10)에 필요. 훈련(train.py)은 불필요하나 마운트해도 무해
