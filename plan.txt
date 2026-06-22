@@ -405,6 +405,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
 # Docker 실행 시 마운트 추가:
 #   -v /usr/local/cuda-12.8:/usr/local/cuda \
 
+# ← we are here now
 micromamba run -n robomme bash scripts/finetune_vlm_subgoal_predictor.sh
 
 # Checkpoint → runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal/
