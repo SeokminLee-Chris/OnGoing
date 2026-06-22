@@ -37,6 +37,7 @@ docker run --rm -it --gpus all \
   -e WANDB_MODE=offline \
   -v /raid/seokmin/openpi_data:/openpi_data \
   -v /raid/seokmin/hf_cache:/hf_cache \
+  -v /usr/local/cuda-12.8:/usr/local/cuda \
   -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
   -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
   -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets \
@@ -298,6 +299,7 @@ docker run --rm -it --gpus all \
   -e WANDB_MODE=offline \
   -v /raid/seokmin/openpi_data:/openpi_data \
   -v /raid/seokmin/hf_cache:/hf_cache \
+  -v /usr/local/cuda-12.8:/usr/local/cuda \
   -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
   -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
   -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets \
@@ -385,6 +387,21 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
 # Edit scripts/finetune_vlm_subgoal_predictor.sh:
 #   DATASET_PATH='data/robomme_preprocessed_data/qwenvl/grounded_subgoal_train.jsonl'
 #   OUTPUT_DIR='runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal'
+#   --model '/hf_cache/hub/models--Qwen--Qwen3-VL-4B-Instruct'  ← 로컬 경로로 변경 필수 (인터넷 없음)
+#   (hf_cache가 컨테이너 안에서 /hf_cache로 마운트되므로 이 경로 사용)
+
+# ⚠️ nvcc 사전 준비 필요 (swift가 Triton 커널 컴파일에 nvcc 12.8 필요)
+# Docker base 이미지가 runtime이라 nvcc 미포함 → devel 이미지에서 추출해야 함
+# 호스트 nvcc는 11.4라 버전 불일치로 사용 불가
+#
+# 준비 (최초 1회):
+#   docker load < /raid/seokmin/seokmin/docker_images/nvidia_cuda12.8_dev.tar
+#   mkdir -p /usr/local/cuda-12.8
+#   docker run --rm -v /usr/local/cuda-12.8:/target nvidia/cuda:12.8.0-devel-ubuntu24.04 cp -r /usr/local/cuda/. /target/
+#   ln -sf /usr/local/cuda-12.8 /usr/local/cuda
+#
+# Docker 실행 시 마운트 추가:
+#   -v /usr/local/cuda-12.8:/usr/local/cuda \
 
 micromamba run -n robomme bash scripts/finetune_vlm_subgoal_predictor.sh
 
