@@ -395,10 +395,30 @@ Annotation-Free Event Segmentation 관련 논문 조사:
     lightweight, pi0.5와 쉽게 통합 가능
   → Kinematic (AWE 방식): 가장 단순하지만 vision 정보 없음
 
+Design Refinements:
+
+  [1. Language-Conditioned Event Segmentation]
+    - keyframe 선택 시 task instruction을 conditioning으로 사용 가능
+    - "clean the bedroom" 같은 goal이 주어지면 어떤 state transition이
+      task-relevant한지 더 잘 판단할 수 있음
+    - memory 유지(event segmentation)와 action 생성은 병렬로 돌 수 있음
+      → language-conditioned segmentation의 overhead가 critical path 아님
+
+  [2. Visual Token이 아닌 압축된 표현 저장]
+    - 꼭 raw visual token을 저장할 필요 없음
+    - VLM EOS token, CLS token 등 이미 압축된 semantic 표현 사용 가능
+    - 오래된 기억일수록 fine-grained visual detail이 덜 중요함
+      (언제 무슨 일이 있었는지의 semantic만 남으면 충분)
+    - 관련 선행연구:
+        MemoryVLA의 cognitive token: LLaMA-7B → 단일 semantic token
+        MEM의 language memory: LLM이 subtask를 자연어로 압축
+    - 차이점: 우리는 annotation-free로, VLM 자체의 내부 표현을 재활용
+
 Open Questions:
   - 어떤 신호가 VLA의 long-horizon 성능과 가장 잘 연결되는가?
   - event boundary를 온라인(inference time)으로도 탐지할 수 있는가?
   - keyframe 수를 동적으로 결정할 수 있는가?
+  - EOS/CLS token vs raw visual token: 어느 시점부터 압축해도 되는가?
 
 ------------------------------------------------------------
 ### Idea 2: Motion-Aware Video Encoding for Recent Frame Compression
