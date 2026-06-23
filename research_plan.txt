@@ -242,3 +242,45 @@ built on top of pi0.5. Memory is parameterized along two axes:
 
 → pi0.5 base + no planner + retrieval: 아직 없음 (우리 방향)
 
+
+=============================================================
+## Dataset
+=============================================================
+
+------------------------------------------------------------
+### Raw Demonstration Data Structure
+------------------------------------------------------------
+
+로봇 demonstration 데이터는 episode 단위로 구성:
+
+  episode:
+    task_instruction: "clean the bedroom"   ← 전 timestep 동일
+    t=0:  obs_0  →  action_0
+    t=1:  obs_1  →  action_1
+    ...
+    t=T:  obs_T  →  action_T
+
+  obs_t = {images (multi-view), proprioceptive state}
+  action_t = joint positions / end-effector commands
+
+핵심 특성:
+  - task_instruction은 episode 전체에서 고정 (subtask 변화 없음)
+  - intermediate subtask label 없음
+  - (obs, action) pair의 나열만 존재
+
+→ chain-of-thought 학습을 하려면 별도 subtask annotation 필요
+→ pure perceptual 방향은 raw data만으로 학습 가능 (scalable)
+
+------------------------------------------------------------
+### RoboMME Dataset (우리 학습 데이터)
+# Source: Yinpei/robomme_data_h5 (HuggingFace, 56 GB raw)
+# Preprocessed: data/robomme_preprocessed_data/
+------------------------------------------------------------
+
+  - 16개 task, 770k timesteps
+  - h5 파일에 grounded_subgoal / simple_subgoal annotation 포함
+    (Qwen fine-tuning용으로 별도 추출, 우리 perceptual 학습엔 미사용)
+  - 우리가 build_dataset.py로 생성한 VLM jsonl:
+      grounded_subgoal_train.jsonl: 24 MB / ~28K samples
+      (저자 원본: 36.9 MB / ~43K samples → public h5가 subset임)
+
