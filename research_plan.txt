@@ -1,0 +1,223 @@
+=============================================================
+# Research Plan: Perceptual Memory for VLA
+# Base model: pi0.5 (PaliGemma + flow matching action expert)
+# Direction: perceptual memory, no separate planner
+=============================================================
+
+=============================================================
+## Related Work
+=============================================================
+
+------------------------------------------------------------
+### 1. RoboMME Perceptual Memory Baseline
+# Paper: "RoboMME: Benchmarking and Understanding Memory for
+#          Robotic Generalist Policies" (arXiv:2603.04639)
+# Base:   pi0.5 backbone, flow-matching objective
+# Code:   github.com/RoboMME/robomme_policy_learning
+------------------------------------------------------------
+
+RoboMME introduces a family of perceptual memory VLA variants
+built on top of pi0.5. Memory is parameterized along two axes:
+
+[Memory Representation]
+
+  FrameSamp:
+    - 균등 간격으로 history frame 선택
+    - 각 frame의 token을 max-pooling → P tokens/view/frame
+    - 메모리 budget B, view 수 V → N = B/(P×V) 개 frame 사용
+    - 전체 공간 context 보존
+
+  TokenDrop:
+    - 각 frame의 token을 spatial pooling → P tokens/frame
+    - frame 간 평균 RGB 차이로 temporal saliency 점수 계산
+    - 전체 timestep에 걸쳐 상위 B tokens 선택 (motion/변화 영역 우선)
+    - Multi-modal Rotary Position Embedding (M-ROPE)으로
+      시간·공간 위치 (time, height, width) 인덱스 부여
+
+[Memory Integration]
+
+  Context (memory-as-context):
+    - memory token을 원래 입력과 concat
+    - VLM expert가 jointly 처리
+
+  Modul (memory-as-modulator):
+    - action expert가 memory token에 cross-attend
+    - 추출한 memory-aware 표현으로 action feature의
+      LayerNorm scale/shift를 조절 (adaptive LayerNorm)
+
+  Expert (memory-as-expert):
+    - 별도 경량 memory expert가 memory token 처리
+    - block-wise causal attention으로 다른 expert와 상호작용
+    - VLM 동작에 간섭 최소화
+
+[Training]
+    - pi0.5 backbone 위에 end-to-end fine-tuning
+    - flow-matching objective, 16개 task (770k timesteps)
+    - 마지막 3 checkpoint × 3 seed = 9 run 평균
+
+[Results]
+    - Best: FrameSamp + Modul → overall 44.51%
+    - 대부분의 perceptual variant가 symbolic/recurrent 최고 성능 초과
+    - TokenDrop < FrameSamp: 과도한 token pruning이 global
+      spatial context 손실 → distance-aware task 성능 저하
+
+[Limitation]
+    - Naive history concat 수준 (no retrieval, no consolidation)
+    - 고정된 budget B로 균등 샘플링 → task-relevant frame을
+      선택하는 메커니즘 없음
+
+
+------------------------------------------------------------
+### 2. MEM: Multi-Scale Embodied Memory
+# Paper: "MEM: Multi-Scale Embodied Memory for Vision Language
+#          Action Models" (arXiv:2603.03596)
+# Base:   pi0.6 (Gemini3-4B + FAST tokens + flow-matching
+#          action expert 860M params)
+------------------------------------------------------------
+
+긴 시간(최대 15분)의 task를 위해 두 가지 메모리를 결합:
+
+[Short-horizon Memory: Video Encoder]
+    - standard ViT를 space-time separable attention으로 확장
+    - 4번째 레이어마다 temporal attention 추가
+      (같은 patch 위치에 대해 causal masking 적용)
+    - 현재 timestep의 표현만 다음으로 전달
+      (과거 timestep의 patch representation은 제거)
+      → single-frame VLA와 동일한 token 수 유지
+    - 새로운 learnable parameter 없음
+      (사전학습된 VLM 가중치로 초기화 가능)
+    - 고정 sinusoidal temporal position encoding 사용
+
+[Long-horizon Memory: Language Memory]
+    - High-level policy πHL이 subtask 완료 시마다
+      LLM으로 "현재까지 완료된 subtask 중 향후에도
+      필요한 정보"를 압축하여 언어 메모리 mt 생성
+    - 예시: 개별 색상 기억 대신 "세 개의 그릇을 cabinet에 배치"
+    - 압축 이유: 반복 실패 시 naive concat은
+      train-inference distribution shift 발생
+
+[Architecture]
+    - πHL (High-level): subtask instruction lt 생성 + 언어 메모리 갱신
+    - πLL (Low-level): 최근 observation + lt → action 생성
+    - Input: 448×448 카메라 최대 4개 + proprioceptive (linear projection)
+    - Pre-train: 5 past + current = 6 frame (1초 간격)
+    - Post-train: 최대 18 frame (54초)
+
+[Training]
+    - Pre-train (280k steps): 다양한 heterogeneous data
+      (teleoperated demos, policy rollouts, vision-language, video-language)
+    - Post-train (80k steps): flow-matching으로 continuous action
+
+[Ablation Findings]
+    - video memory 제거 시: policy가 무한 정지 (temporal grounding 상실)
+    - language memory 제거 시: 먼 과거 semantic event 추적 불가
+    - naive language memory (전체 subtask concat): distribution
+      shift로 인해 성능 크게 저하
+    - pre-training memory on diverse data: post-training-only 대비 크게 향상
+
+[Limitation]
+    - High-level / Low-level 두 policy가 필요
+      (MemER처럼 완전한 planner+VLA는 아니지만 계층적)
+    - Language memory 생성에 subtask annotation 필요
+
+
+------------------------------------------------------------
+### 3. MemER: Scaling Up Memory via Experience Retrieval
+# Paper: "MemER: Scaling Up Memory for Robot Control via
+#          Experience Retrieval" (arXiv:2510.20328)
+# Base:   Qwen2.5-VL-7B-Instruct (high-level) + pi0.5 (low-level)
+------------------------------------------------------------
+
+완전한 계층 구조 (Planner + VLA):
+
+[Architecture]
+    - High-level policy (1Hz): Qwen2.5-VL-7B-Instruct fine-tune
+      · 입력: 최근 N frames/camera + task instruction + 선택된 keyframe들
+      · 출력: language subtask + candidate keyframe 지명
+    - Low-level policy (2Hz): pi0.5
+      · 입력: 현재 이미지 + proprioceptive + language subtask
+      · 출력: action chunk
+
+[Keyframe Selection & Episodic Memory Consolidation]
+    - 매 timestep에 high-level이 candidate keyframe index 지명
+    - 누적된 index 리스트에 1D single-linkage clustering 적용
+      (merge distance threshold: 5 frames)
+    - 각 cluster에서 median frame index 선택 → stable episodic memory
+    - context window를 벗어난 frame은 consolidated memory로 이동,
+      이후 high-level policy의 입력으로 재활용
+
+[Training]
+    - High-level: task당 약 50개 demo + minimal language annotation
+      vision encoder / projection layer frozen, model merging (α=0.8)
+    - Low-level: pi0.5 체크포인트 + 50개 long-horizon demo
+      + 10-15개 intervention example
+    - Keyframe annotation: subtask 전환점 기준 semi-automatic 절차
+
+[Limitation]
+    - 두 개의 별도 모델 필요 (추론 시간, 실시간 배포 어려움)
+    - task당 50개 demo + language annotation 필요
+    - keyframe이 너무 많아지면 (수 시간짜리 task) 처리 불가
+    - Qwen 7B inference overhead (우리가 안 가려는 방향)
+
+
+------------------------------------------------------------
+### 4. MemoryVLA: Perceptual-Cognitive Memory
+# Paper: "MemoryVLA: Perceptual-Cognitive Memory in VLA Models
+#          for Robotic Manipulation" (arXiv:2508.19236)
+# Base:   7B Prismatic VLM + diffusion transformer action expert
+# Status: ICLR 2026 accepted
+------------------------------------------------------------
+
+인지과학(working memory + episodic memory) 기반 단일 모델:
+
+[Working Memory (매 step 생성)]
+    - Perceptual tokens (~256개, 256-dim):
+      DINOv2 + SigLIP encoder → SE-bottleneck module로 압축
+      (low-level 시각 세부 정보)
+    - Cognitive tokens (단일 token):
+      visual feature를 LLaMA-7B + language instruction에 통과
+      (high-level semantic 요약)
+
+[Perceptual-Cognitive Memory Bank (PCMB): 장기 저장]
+    - Perceptual stream: 과거 perceptual token L개 저장
+    - Cognitive stream: 과거 cognitive token L개 저장
+    - 용량 초과 시 consolidation: 두 스트림 각각에서 cosine
+      similarity 가장 높은 인접 entry 쌍을 평균으로 병합
+
+[Memory Retrieval & Fusion]
+    - Working memory가 PCMB에 scaled dot-product attention으로 query
+    - Sinusoidal temporal positional encoding으로 "언제" 발생했는지 인식
+    - Gate fusion으로 retrieved 정보와 현재 관측 통합:
+        fused = gate ⊙ retrieved + (1 - gate) ⊙ current
+
+[Action Generation]
+    - Memory-conditioned diffusion transformer (action expert)
+    - Cognitive token → cognition-attention layer (semantic 가이드)
+    - Perceptual token → perception-attention layer (시각 세부 가이드)
+    - 10 DDIM sampling steps, 16-step action sequence 생성
+
+[Results]
+    - SimplerEnv-Bridge: 71.9% (+14.6 over baseline)
+    - Fractal: 72.7%
+    - LIBERO-5: 96.5%
+    - Real-world 12 tasks: 84.0%, long-horizon +26pp over SOTA
+
+[Limitation]
+    - LLaMA-7B로 cognitive token 생성 → 추론 overhead
+    - 고정 capacity L → task 길이에 따라 조정 필요
+    - VLA backbone이 pi0.5가 아닌 Prismatic 기반
+
+
+=============================================================
+## Summary Table
+=============================================================
+
+| Method       | Planner | Memory Type         | Retrieval | Base Model       |
+|-------------|---------|---------------------|-----------|------------------|
+| RoboMME     | No      | frame concat        | No        | pi0.5            |
+| MEM         | Yes(HL) | video + language    | No        | pi0.6            |
+| MemER       | Yes     | episodic keyframe   | Yes       | Qwen+pi0.5       |
+| MemoryVLA   | No      | perceptual+cognitive| Yes(attn) | Prismatic 7B     |
+
+→ pi0.5 base + no planner + retrieval: 아직 없음 (우리 방향)
+
