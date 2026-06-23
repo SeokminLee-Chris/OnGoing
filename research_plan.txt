@@ -401,7 +401,36 @@ Open Questions:
   - keyframe 수를 동적으로 결정할 수 있는가?
 
 ------------------------------------------------------------
-### Idea 2: Annotation-Conditional Chain-of-Thought + Perceptual Memory
+### Idea 2: Motion-Aware Video Encoding for Recent Frame Compression
+# Difficulty: Medium / Novelty: Low (straightforward, but necessary)
+------------------------------------------------------------
+
+핵심 관찰:
+  - 최근 N개 frame을 전부 VLA에 넘기는 건 비효율적
+    · 인접 frame 간 mutual information이 매우 높음 (거의 동일한 scene)
+    · token 수 선형 증가 → attention overhead, context window 낭비
+  - 꼭 필요한 정보만 추출해서 넘겨야 함
+
+아이디어:
+  - motion-aware video encoder로 N frames를 미리 압축
+  - 시간적으로 중복된 정보 제거 (mutual info 감소)
+  - 변화가 있는 부분(motion, appearance change)에 집중
+  - 압축된 표현만 VLA에 전달
+
+관련 선행연구:
+  - MEM: space-time separable attention ViT (temporal attention 추가,
+    현재 timestep 표현만 downstream으로 전달)
+  - RoboMME TokenDrop: RGB 차이로 temporal saliency 계산 후
+    상위 B tokens만 선택 → 비슷한 방향이지만 단순한 heuristic 수준
+
+Novelty 평가:
+  - 아이디어 자체는 자명함 (당연한 방향)
+  - MEM이 이미 유사한 접근을 함
+  - 차별화하려면 "어떻게 압축하느냐"의 구체적 설계가 중요
+    (motion 신호 선택, architecture, VLA 통합 방식 등)
+
+------------------------------------------------------------
+### Idea 3: Annotation-Conditional Chain-of-Thought + Perceptual Memory
 # Difficulty: High / Novelty: Clear
 ------------------------------------------------------------
 
