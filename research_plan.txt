@@ -462,10 +462,26 @@ Design Refinements:
         - annotation 불필요 (task instruction만으로 criteria 생성)
         - memory budget을 task에 맞게 동적 배분
 
+    Core Framing:
+        "We use a VLM only as an offline memory annotator, not as an online
+        planner. This allows the policy to learn from task-relevant keyframe
+        memories while preserving the real-time inference structure of
+        standard VLA policies."
+
     관련 선행연구와의 차이:
         MemER:     VLM subtask → action conditioning    (latency 직접 영향)
         RoboMME symbolic: Qwen subtask → action conditioning (latency 직접 영향)
         우리:      VLM → memory management only         (action path 독립)
+
+    Proposed Experiment (First Step):
+        - MemER의 VLM (Qwen)을 keyframe selection에만 사용
+        - VLA는 (obs, keyframe memory, task instruction) → action
+        - subtask text는 action path에 전혀 들어가지 않음
+        - RoboMME perceptual memory integration (Context/Modul/Expert) 재활용
+        - 검증 hypothesis:
+            "subtask conditioning 없이, 잘 선택된 keyframe memory만으로
+             MemER와 동등하거나 더 나은 성능을 낼 수 있는가?"
+        - latency-critical task에서 특히 이점 기대
 
 Open Questions:
   - 어떤 신호가 VLA의 long-horizon 성능과 가장 잘 연결되는가?
