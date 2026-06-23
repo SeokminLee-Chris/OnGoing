@@ -259,7 +259,22 @@ cp checkpoint-1200.zip ~/seokmin/memory/runs/ckpts/vlm_subgoal_predictor/qwenvl/
 #   runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/79999/
 #   runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal/checkpoint-1200/
 
-# ---------- E: eval.sh 변수 편집 ----------
+# ---------- E: api.py 패치 (컨테이너 안에서, 최초 1회) ----------
+# examples/robomme/subgoal_prediction/qwenvl/api.py 는 Docker 이미지에 baked-in
+# → 컨테이너 안에서 직접 수정 필요
+
+# 패치 1: Qwen 모델 경로 로컬로 변경 (인터넷 없음)
+sed -i "s|model_id_or_path='Qwen/Qwen3-VL-4B-Instruct'|model_id_or_path='/hf_cache/hub/models--Qwen--Qwen3-VL-4B-Instruct'|" \
+  examples/robomme/subgoal_prediction/qwenvl/api.py
+
+# 패치 2: flash_attention_2 → sdpa (4090 환경에 flash_attention2 미설치)
+sed -i "s|attn_impl='flash_attention_2'|attn_impl='sdpa'|" \
+  examples/robomme/subgoal_prediction/qwenvl/api.py
+
+# 확인
+grep -E "model_id_or_path|attn_impl" examples/robomme/subgoal_prediction/qwenvl/api.py
+
+# ---------- F: eval.sh 변수 편집 ----------
 # scripts/eval.sh 상단:
 #   MODEL_TYPE="symbolic_groundedSG_qwenvl"
 #   SEED=7
