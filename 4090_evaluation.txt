@@ -283,6 +283,7 @@ grep -E "model_id_or_path|attn_impl" examples/robomme/subgoal_prediction/qwenvl/
 #   GPU_ID_client=1
 
 # ---------- F: 평가 실행 (컨테이너 안) ----------
+# [started: 2025-06-23 14:13]
 bash scripts/eval.sh
 
 # 결과 확인
