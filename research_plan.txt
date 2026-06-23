@@ -438,6 +438,30 @@ Design Refinements:
         우리는 subtask/VLM을 memory 관리에만 사용
         → "memory가 충분히 좋으면 subtask로 action을 conditioning할 필요 없다"
 
+    Concrete 2-Step Design:
+
+      [Step 1: Pre-Episode Memory Planning (1회, amortized)]
+        Input : task instruction + memory budget
+        Model : LLM / VLM
+        Output: "어떤 종류의 frame을 저장해야 하는가"의 기준 (criteria)
+                예) "object가 grasped되는 순간"
+                    "drawer가 열리는 순간"
+                    "subtask 전환이 일어나는 시각적 패턴"
+        비용  : episode 시작 전 1회 → inference latency에 영향 없음
+
+      [Step 2: Per-Step Memory Filtering (매 step, parallel)]
+        Input : current frame + Step 1 criteria
+        Model : VLM 또는 pi0.5 자체 (이미 frame 처리 중)
+        Output: yes / no → yes면 memory에 저장 (visual or EOS token)
+        비용  : binary decision → lightweight 가능
+                action 생성과 병렬 동작 → latency 0
+
+      핵심 장점:
+        - Step 1이 "무엇을 기억할지"의 reasoning을 1회로 amortize
+        - Step 2는 단순 판단 → fast
+        - annotation 불필요 (task instruction만으로 criteria 생성)
+        - memory budget을 task에 맞게 동적 배분
+
     관련 선행연구와의 차이:
         MemER:     VLM subtask → action conditioning    (latency 직접 영향)
         RoboMME symbolic: Qwen subtask → action conditioning (latency 직접 영향)
