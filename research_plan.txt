@@ -5,11 +5,11 @@
 =============================================================
 
 =============================================================
-## Related Work
+## 1. Related Work
 =============================================================
 
 ------------------------------------------------------------
-### 1. RoboMME Perceptual Memory Baseline
+### 1.1. RoboMME Perceptual Memory Baseline
 # Paper: "RoboMME: Benchmarking and Understanding Memory for
 #          Robotic Generalist Policies" (arXiv:2603.04639)
 # Base:   pi0.5 backbone, flow-matching objective
@@ -89,7 +89,7 @@ built on top of pi0.5. Memory is parameterized along two axes:
 
 
 ------------------------------------------------------------
-### 2. MEM: Multi-Scale Embodied Memory
+### 1.2. MEM: Multi-Scale Embodied Memory
 # Paper: "MEM: Multi-Scale Embodied Memory for Vision Language
 #          Action Models" (arXiv:2603.03596)
 # Base:   pi0.6 (Gemini3-4B + FAST tokens + flow-matching
@@ -143,7 +143,7 @@ built on top of pi0.5. Memory is parameterized along two axes:
 
 
 ------------------------------------------------------------
-### 3. MemER: Scaling Up Memory via Experience Retrieval
+### 1.3. MemER: Scaling Up Memory via Experience Retrieval
 # Paper: "MemER: Scaling Up Memory for Robot Control via
 #          Experience Retrieval" (arXiv:2510.20328)
 # Base:   Qwen2.5-VL-7B-Instruct (high-level) + pi0.5 (low-level)
@@ -182,7 +182,7 @@ built on top of pi0.5. Memory is parameterized along two axes:
 
 
 ------------------------------------------------------------
-### 4. MemoryVLA: Perceptual-Cognitive Memory
+### 1.4. MemoryVLA: Perceptual-Cognitive Memory
 # Paper: "MemoryVLA: Perceptual-Cognitive Memory in VLA Models
 #          for Robotic Manipulation" (arXiv:2508.19236)
 # Base:   7B Prismatic VLM + diffusion transformer action expert
@@ -230,25 +230,25 @@ built on top of pi0.5. Memory is parameterized along two axes:
 
 
 =============================================================
-## Summary Table
+## 2. Summary Table
 =============================================================
 
-| Method       | Planner | Memory Type         | Retrieval | Base Model       |
-|-------------|---------|---------------------|-----------|------------------|
-| RoboMME     | No      | frame concat        | No        | pi0.5            |
-| MEM         | Yes(HL) | video + language    | No        | pi0.6            |
-| MemER       | Yes     | episodic keyframe   | Yes       | Qwen+pi0.5       |
-| MemoryVLA   | No      | perceptual+cognitive| Yes(attn) | Prismatic 7B     |
+| Method     | Planner  | Memory Type          | Retrieval  | Base Model    |
+|------------|----------|----------------------|------------|---------------|
+| RoboMME    | No       | frame concat         | No         | pi0.5         |
+| MEM        | Yes (HL) | video + language     | No         | pi0.6         |
+| MemER      | Yes      | episodic keyframe    | Yes        | Qwen + pi0.5  |
+| MemoryVLA  | No       | perceptual+cognitive | Yes (attn) | Prismatic 7B  |
 
 → pi0.5 base + no planner + retrieval: 아직 없음 (우리 방향)
 
 
 =============================================================
-## Limitations of Previous Approaches
+## 3. Limitations of Previous Approaches
 =============================================================
 
 ------------------------------------------------------------
-### Symbolic Memory 계열의 한계
+### 3.1. Symbolic Memory 계열의 한계
 ------------------------------------------------------------
 
 [1. Annotation Cost]
@@ -276,12 +276,44 @@ annotation cost와 inference latency라는 현실적인 trade-off 역시 함께
 고려해야 한다.
 
 
+------------------------------------------------------------
+### 3.2. Perceptual Memory 계열의 한계
+------------------------------------------------------------
+
+[1. Task-Irrelevant Frame Retention]
+
+Perceptual Memory는 별도의 annotation 없이 raw visual history를 직접
+활용할 수 있다는 강점이 있다. 그러나 현재 방식(RoboMME FrameSamp)은
+균등 간격 샘플링을 사용하기 때문에, task-relevant state transition이
+발생한 frame과 아무 변화도 없는 frame을 동등하게 취급한다. 결과적으로
+제한된 memory budget이 task와 무관한 frame에도 낭비된다. TokenDrop의
+경우 motion 기반 saliency를 도입했지만, RGB 차이라는 단순한 heuristic에
+의존하며 task instruction과 무관하게 작동한다는 한계가 있다.
+
+[2. No Memory Consolidation]
+
+RoboMME는 budget을 초과한 과거 frame을 단순히 drop한다. MEM의 ablation
+결과에서 보듯, video memory가 없으면 policy가 무한 정지하는 현상이
+발생할 수 있으며, 먼 과거에 일어난 중요한 semantic event (예: 어떤
+object를 어디 놓았는지)는 budget 부족으로 완전히 소실된다. Symbolic
+계열이 LLM을 통한 언어 압축으로 이를 해결하는 것과 달리, Perceptual
+계열에는 아직 이에 상응하는 consolidation 메커니즘이 없다.
+
+[3. Lack of Semantic Grounding]
+
+Perceptual memory는 "무엇이 일어났는가"를 pixel 수준으로만 기억한다.
+chain-of-thought이 제거된 상태에서 모델은 history frame만 보고
+"지금 어느 subtask 단계에 있는지"를 스스로 파악해야 한다. 이는
+단순한 시각적 패턴 매칭으로는 어렵고, history frame이 길어질수록
+어느 frame이 현재 의사결정에 실제로 필요한지 판단하기 더 어려워진다.
+
+
 =============================================================
-## Dataset
+## 4. Dataset
 =============================================================
 
 ------------------------------------------------------------
-### Raw Demonstration Data Structure
+### 4.1. Raw Demonstration Data Structure
 ------------------------------------------------------------
 
 로봇 demonstration 데이터는 episode 단위로 구성:
@@ -305,7 +337,7 @@ annotation cost와 inference latency라는 현실적인 trade-off 역시 함께
 → pure perceptual 방향은 raw data만으로 학습 가능 (scalable)
 
 ------------------------------------------------------------
-### RoboMME Dataset (우리 학습 데이터)
+### 4.2. RoboMME Dataset (우리 학습 데이터)
 # Source: Yinpei/robomme_data_h5 (HuggingFace, 56 GB raw)
 # Preprocessed: data/robomme_preprocessed_data/
 ------------------------------------------------------------
@@ -318,180 +350,60 @@ annotation cost와 inference latency라는 현실적인 trade-off 역시 함께
       (저자 원본: 36.9 MB / ~43K samples → public h5가 subset임)
 
 =============================================================
-## Possible Ideas
+## 5. Possible Ideas
 =============================================================
 
 ------------------------------------------------------------
-### Idea 1: Annotation-Free Event Segmentation → Keyframe Memory
-# Difficulty: Medium-High / Novelty: Clear
+### 5.1. Idea 1: MemER Keyframe Selection as Memory without Subgoal Conditioning
+# Difficulty: Medium / Novelty: Clear
 ------------------------------------------------------------
 
 핵심 아이디어:
-  - Uniform frame sampling (RoboMME FrameSamp) 대신,
-    annotation 없이 event boundary를 찾아 keyframe 선택
-  - 선택된 keyframe의 visual token을 memory로 사용
-  - "task-relevant state transition" 지점만 저장 → efficient & semantic
+  - MemER의 VLM (Qwen)을 keyframe selection에만 사용
+  - VLA는 (obs, selected keyframe memory, task instruction) → action 직접 생성
+  - subtask text는 action path에 전혀 들어가지 않음
+  - "잘 선택된 keyframe memory만으로 subtask conditioning을 대체할 수 있는가?"
 
-Annotation-Free Event Segmentation 관련 논문 조사:
-(signal 유형별 분류)
+Core Framing:
+    "We use a VLM only as an offline memory annotator, not as an online
+    planner. This allows the policy to learn from task-relevant keyframe
+    memories while preserving the real-time inference structure of
+    standard VLA policies."
 
-[1. Kinematic / Velocity-based]
+관련 선행연구와의 차이:
+    MemER:            VLM subtask → action conditioning    (latency 직접 영향)
+    RoboMME symbolic: Qwen subtask → action conditioning   (latency 직접 영향)
+    우리:             VLM → keyframe selection only        (action path 독립)
 
-  AWE (CoRL 2023, arXiv:2307.14326)
-    - end-effector pose trajectory를 linear interpolation으로 근사
-    - reconstruction error가 threshold 초과하는 지점 = keyframe
-    - annotation-free, learning 불필요, 순수 kinematic 신호
-    - real bimanual 로봇에서 BC horizon 최대 10x 감소, +4~28% 성능
+[Prerequisite Experiment: VLM vs VLA Latency Comparison]
+    - 본 아이디어의 핵심 주장은 "VLM을 action path 밖으로 빼면 latency가 없다"
+    - 이를 뒷받침하려면 먼저 실제 latency 수치 측정이 필요
+    - 측정 대상:
+        · VLM inference latency (Qwen keyframe selection, per step)
+        · VLA inference latency (pi0.5 action generation, per step)
+    - 목표: "VLM latency ≤ VLA latency" 또는 병렬화 시 overhead가 무시 가능한
+      수준임을 실험적으로 보여줌 → 제안 방법의 실용성 근거
 
-  ORION (arXiv:2405.20321, 2024) / OKAMI (CoRL 2024, arXiv:2410.11792)
-    - CoTracker로 object keypoint 추적 → velocity time-series 계산
-    - ruptures 라이브러리로 kernel-based changepoint detection (PELT)
-    - object contact/release/place 시점 = velocity 급변 지점
-    - real robot (ORION ~69% success), humanoid (OKAMI)에 적용
+[Proposed Experiment]
+    - MemER의 VLM (Qwen)을 keyframe selection에만 사용
+    - VLA는 (obs, keyframe memory, task instruction) → action
+    - subtask text는 action path에 전혀 들어가지 않음
+    - RoboMME perceptual memory integration (Context/Modul/Expert) 재활용
+    - 검증 hypothesis:
+        "subtask conditioning 없이, 잘 선택된 keyframe memory만으로
+         MemER와 동등하거나 더 나은 성능을 낼 수 있는가?"
+    - latency-critical task에서 특히 이점 기대
 
-[2. Visual Representation Similarity-based]
-
-  LOTUS (ICRA 2024, arXiv:2311.02058)
-    - DINOv2로 각 frame visual embedding 추출
-    - bottom-up agglomerative clustering (cosine similarity)
-    - 인접 segment 중 similarity 낮은 경계 = event boundary
-    - real robot lifelong learning에 적용
-
-  UBoCo (CVPR 2022, arXiv:2111.14799)
-    - Temporal Self-Similarity Matrix (TSM) 구성
-    - diagonal 불연속 지점 = event boundary
-    - Boundary Contrastive (BoCo) loss로 encoder 학습
-    - unsupervised 버전이 prior supervised SOTA 초과
-
-[3. Prediction Error-based]
-
-  CoSeg (TNNLS 2023, arXiv:2109.15170)
-    - transformer가 주변 context로 현재 frame feature 재구성
-    - reconstruction error spike = event boundary
-    - 인지과학의 "예측 실패 = 사건 경계 인식"에서 영감
-
-  Open-World SBD (ICCV 2025, arXiv:2503.10684)
-    - Transformer-XL policy의 action prediction NLL error 사용
-    - running average 대비 error 급증 지점 = skill boundary
-    - VLA 자체의 prediction error를 재활용할 수 있다는 점에서 유망
-
-[4. Information-theoretic]
-
-  MaxMI (ECCV 2024, arXiv:2407.15086)
-    - key state → 직전 state 간 mutual information 최대화
-    - "물리적 제약이 많은 상태 = key state" (grasp, contact 등)
-    - InfoNet으로 MI 추정, KSL-Net으로 soft 확률 분포 학습
-    - robot manipulation sim에 직접 적용
-
-  InfoCon (ICLR 2024, arXiv:2404.10606)
-    - VQ-VAE + learnable codebook으로 manipulation concept 발견
-    - generative + discriminative + actionable loss (annotation-free)
-    - ManiSkill2 (Pick&Place, StackCube 등)에 적용
-
-우리 방향에 가장 유망한 접근:
-  → VLA 자체의 prediction error (SBD 방식): 별도 모듈 불필요,
-    VLA backbone이 이미 학습 중이므로 재활용 가능
-  → DINOv2 visual similarity (LOTUS/UBoCo 방식): vision-only,
-    lightweight, pi0.5와 쉽게 통합 가능
-  → Kinematic (AWE 방식): 가장 단순하지만 vision 정보 없음
-
-Design Refinements:
-
-  [1. Language-Conditioned Event Segmentation]
-    - keyframe 선택 시 task instruction을 conditioning으로 사용 가능
-    - "clean the bedroom" 같은 goal이 주어지면 어떤 state transition이
-      task-relevant한지 더 잘 판단할 수 있음
-    - memory 유지(event segmentation)와 action 생성은 병렬로 돌 수 있음
-      → language-conditioned segmentation의 overhead가 critical path 아님
-
-  [2. Visual Token이 아닌 압축된 표현 저장]
-    - 꼭 raw visual token을 저장할 필요 없음
-    - VLM EOS token, CLS token 등 이미 압축된 semantic 표현 사용 가능
-    - 오래된 기억일수록 fine-grained visual detail이 덜 중요함
-      (언제 무슨 일이 있었는지의 semantic만 남으면 충분)
-    - 관련 선행연구:
-        MemoryVLA의 cognitive token: LLaMA-7B → 단일 semantic token
-        MEM의 language memory: LLM이 subtask를 자연어로 압축
-    - 차이점: 우리는 annotation-free로, VLM 자체의 내부 표현을 재활용
-
-  [3. VLM-Driven Dynamic Memory (task-adaptive, latency-free)]
-    - task마다 최적 memory 전략이 다름:
-        · raw visual vs VLM EOS token 중 뭐가 더 중요한지
-        · 저장 주기 (매 5 step? 매 20 step?)
-        · memory budget 배분
-    - task 시작 전 LLM에게 task instruction을 주고 memory 전략 결정
-      (task 시작 전 1회 → inference latency에 영향 없음)
-
-    - 실행 중 VLM 역할:
-        · "지금이 keyframe인가?" 판단 (event segmentation)
-        · "visual token으로 저장? EOS token으로 저장?" 결정
-        · action 생성과 완전히 병렬로 동작 → latency 0
-
-    - action model은 subtask text를 절대 받지 않음:
-        action input = [current obs] + [task instruction] + [compressed memory]
-        subtask가 있더라도 memory management에만 사용
-        → action path에 VLM latency 전혀 없음
-
-    핵심 insight:
-        기존 연구들은 subtask를 memory로 쓰면서 동시에 action conditioning에도 씀
-        → VLM latency가 action 생성에 직결
-        우리는 subtask/VLM을 memory 관리에만 사용
-        → "memory가 충분히 좋으면 subtask로 action을 conditioning할 필요 없다"
-
-    Concrete 2-Step Design:
-
-      [Step 1: Pre-Episode Memory Planning (1회, amortized)]
-        Input : task instruction + memory budget
-        Model : LLM / VLM
-        Output: "어떤 종류의 frame을 저장해야 하는가"의 기준 (criteria)
-                예) "object가 grasped되는 순간"
-                    "drawer가 열리는 순간"
-                    "subtask 전환이 일어나는 시각적 패턴"
-        비용  : episode 시작 전 1회 → inference latency에 영향 없음
-
-      [Step 2: Per-Step Memory Filtering (매 step, parallel)]
-        Input : current frame + Step 1 criteria
-        Model : VLM 또는 pi0.5 자체 (이미 frame 처리 중)
-        Output: yes / no → yes면 memory에 저장 (visual or EOS token)
-        비용  : binary decision → lightweight 가능
-                action 생성과 병렬 동작 → latency 0
-
-      핵심 장점:
-        - Step 1이 "무엇을 기억할지"의 reasoning을 1회로 amortize
-        - Step 2는 단순 판단 → fast
-        - annotation 불필요 (task instruction만으로 criteria 생성)
-        - memory budget을 task에 맞게 동적 배분
-
-    Core Framing:
-        "We use a VLM only as an offline memory annotator, not as an online
-        planner. This allows the policy to learn from task-relevant keyframe
-        memories while preserving the real-time inference structure of
-        standard VLA policies."
-
-    관련 선행연구와의 차이:
-        MemER:     VLM subtask → action conditioning    (latency 직접 영향)
-        RoboMME symbolic: Qwen subtask → action conditioning (latency 직접 영향)
-        우리:      VLM → memory management only         (action path 독립)
-
-    Proposed Experiment (First Step):
-        - MemER의 VLM (Qwen)을 keyframe selection에만 사용
-        - VLA는 (obs, keyframe memory, task instruction) → action
-        - subtask text는 action path에 전혀 들어가지 않음
-        - RoboMME perceptual memory integration (Context/Modul/Expert) 재활용
-        - 검증 hypothesis:
-            "subtask conditioning 없이, 잘 선택된 keyframe memory만으로
-             MemER와 동등하거나 더 나은 성능을 낼 수 있는가?"
-        - latency-critical task에서 특히 이점 기대
-
-Open Questions:
-  - 어떤 신호가 VLA의 long-horizon 성능과 가장 잘 연결되는가?
-  - event boundary를 온라인(inference time)으로도 탐지할 수 있는가?
-  - keyframe 수를 동적으로 결정할 수 있는가?
-  - EOS/CLS token vs raw visual token: 어느 시점부터 압축해도 되는가?
-  - task-adaptive memory 전략이 실제로 uniform보다 얼마나 좋은가?
+[Open Questions]
+  - keyframe memory representation: raw visual token vs VLM EOS token?
+  - keyframe 수를 task 복잡도에 따라 동적으로 결정할 수 있는가?
+  - MemER의 clustering 기반 keyframe selection이 우리 setting에서도
+    유효한가? (subtask conditioning 없는 VLA에서 어떤 keyframe이 중요한지)
+  - VLM keyframe selection의 overhead를 action 생성과 병렬로
+    처리할 수 있는가? (latency 0 달성 가능한가?)
 
 ------------------------------------------------------------
-### Idea 2: Motion-Aware Video Encoding for Recent Frame Compression
+### 5.2. Idea 2: Motion-Aware Video Encoding for Recent Frame Compression
 # Difficulty: Medium / Novelty: Low (straightforward, but necessary)
 ------------------------------------------------------------
 
@@ -518,34 +430,4 @@ Novelty 평가:
   - MEM이 이미 유사한 접근을 함
   - 차별화하려면 "어떻게 압축하느냐"의 구체적 설계가 중요
     (motion 신호 선택, architecture, VLA 통합 방식 등)
-
-------------------------------------------------------------
-### Idea 3: Annotation-Conditional Chain-of-Thought + Perceptual Memory
-# Difficulty: High / Novelty: Clear
-------------------------------------------------------------
-
-핵심 관찰:
-  - Subtask annotation 비용은 환경에 따라 다름
-    · Simulation / structured tasks: annotation cheap (or already available)
-    · Real-world / open-world: annotation expensive
-  - RoboMME perceptual에서 pi0.5 chain-of-thought가 제거됨
-    (task instruction만 language input으로 사용)
-
-아이디어:
-  - Annotation이 있을 때: chain-of-thought + perceptual memory
-      [history + obs + instruction] → text subtask → action
-  - Annotation이 없을 때: pure perceptual memory
-      [history + obs + instruction] → action (직접)
-  - 두 케이스를 하나의 모델이 커버
-    → annotation 있으면 더 잘하고, 없어도 동작
-
-Novelty:
-  - pi0.5 base + perceptual memory + chain-of-thought의 조합이 없음
-  - annotation 유무에 따라 gracefully degrade하는 설계
-  - single model이므로 planner+VLA의 inference overhead 없음
-
-Challenges:
-  - 두 학습 regime을 하나의 모델에 통합하는 학습 방법 설계
-  - chain-of-thought 유/무 간 성능 gap 측정 및 분석 필요
-  - real-world 실험까지 가야 완전한 검증
 
