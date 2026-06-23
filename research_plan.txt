@@ -284,3 +284,37 @@ built on top of pi0.5. Memory is parameterized along two axes:
       grounded_subgoal_train.jsonl: 24 MB / ~28K samples
       (저자 원본: 36.9 MB / ~43K samples → public h5가 subset임)
 
+=============================================================
+## Possible Ideas
+=============================================================
+
+------------------------------------------------------------
+### Idea 1: Annotation-Conditional Chain-of-Thought + Perceptual Memory
+# Difficulty: High / Novelty: Clear
+------------------------------------------------------------
+
+핵심 관찰:
+  - Subtask annotation 비용은 환경에 따라 다름
+    · Simulation / structured tasks: annotation cheap (or already available)
+    · Real-world / open-world: annotation expensive
+  - RoboMME perceptual에서 pi0.5 chain-of-thought가 제거됨
+    (task instruction만 language input으로 사용)
+
+아이디어:
+  - Annotation이 있을 때: chain-of-thought + perceptual memory
+      [history + obs + instruction] → text subtask → action
+  - Annotation이 없을 때: pure perceptual memory
+      [history + obs + instruction] → action (직접)
+  - 두 케이스를 하나의 모델이 커버
+    → annotation 있으면 더 잘하고, 없어도 동작
+
+Novelty:
+  - pi0.5 base + perceptual memory + chain-of-thought의 조합이 없음
+  - annotation 유무에 따라 gracefully degrade하는 설계
+  - single model이므로 planner+VLA의 inference overhead 없음
+
+Challenges:
+  - 두 학습 regime을 하나의 모델에 통합하는 학습 방법 설계
+  - chain-of-thought 유/무 간 성능 gap 측정 및 분석 필요
+  - real-world 실험까지 가야 완전한 검증
+
