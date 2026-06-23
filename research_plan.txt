@@ -322,7 +322,86 @@ annotation cost와 inference latency라는 현실적인 trade-off 역시 함께
 =============================================================
 
 ------------------------------------------------------------
-### Idea 1: Annotation-Conditional Chain-of-Thought + Perceptual Memory
+### Idea 1: Annotation-Free Event Segmentation → Keyframe Memory
+# Difficulty: Medium-High / Novelty: Clear
+------------------------------------------------------------
+
+핵심 아이디어:
+  - Uniform frame sampling (RoboMME FrameSamp) 대신,
+    annotation 없이 event boundary를 찾아 keyframe 선택
+  - 선택된 keyframe의 visual token을 memory로 사용
+  - "task-relevant state transition" 지점만 저장 → efficient & semantic
+
+Annotation-Free Event Segmentation 관련 논문 조사:
+(signal 유형별 분류)
+
+[1. Kinematic / Velocity-based]
+
+  AWE (CoRL 2023, arXiv:2307.14326)
+    - end-effector pose trajectory를 linear interpolation으로 근사
+    - reconstruction error가 threshold 초과하는 지점 = keyframe
+    - annotation-free, learning 불필요, 순수 kinematic 신호
+    - real bimanual 로봇에서 BC horizon 최대 10x 감소, +4~28% 성능
+
+  ORION (arXiv:2405.20321, 2024) / OKAMI (CoRL 2024, arXiv:2410.11792)
+    - CoTracker로 object keypoint 추적 → velocity time-series 계산
+    - ruptures 라이브러리로 kernel-based changepoint detection (PELT)
+    - object contact/release/place 시점 = velocity 급변 지점
+    - real robot (ORION ~69% success), humanoid (OKAMI)에 적용
+
+[2. Visual Representation Similarity-based]
+
+  LOTUS (ICRA 2024, arXiv:2311.02058)
+    - DINOv2로 각 frame visual embedding 추출
+    - bottom-up agglomerative clustering (cosine similarity)
+    - 인접 segment 중 similarity 낮은 경계 = event boundary
+    - real robot lifelong learning에 적용
+
+  UBoCo (CVPR 2022, arXiv:2111.14799)
+    - Temporal Self-Similarity Matrix (TSM) 구성
+    - diagonal 불연속 지점 = event boundary
+    - Boundary Contrastive (BoCo) loss로 encoder 학습
+    - unsupervised 버전이 prior supervised SOTA 초과
+
+[3. Prediction Error-based]
+
+  CoSeg (TNNLS 2023, arXiv:2109.15170)
+    - transformer가 주변 context로 현재 frame feature 재구성
+    - reconstruction error spike = event boundary
+    - 인지과학의 "예측 실패 = 사건 경계 인식"에서 영감
+
+  Open-World SBD (ICCV 2025, arXiv:2503.10684)
+    - Transformer-XL policy의 action prediction NLL error 사용
+    - running average 대비 error 급증 지점 = skill boundary
+    - VLA 자체의 prediction error를 재활용할 수 있다는 점에서 유망
+
+[4. Information-theoretic]
+
+  MaxMI (ECCV 2024, arXiv:2407.15086)
+    - key state → 직전 state 간 mutual information 최대화
+    - "물리적 제약이 많은 상태 = key state" (grasp, contact 등)
+    - InfoNet으로 MI 추정, KSL-Net으로 soft 확률 분포 학습
+    - robot manipulation sim에 직접 적용
+
+  InfoCon (ICLR 2024, arXiv:2404.10606)
+    - VQ-VAE + learnable codebook으로 manipulation concept 발견
+    - generative + discriminative + actionable loss (annotation-free)
+    - ManiSkill2 (Pick&Place, StackCube 등)에 적용
+
+우리 방향에 가장 유망한 접근:
+  → VLA 자체의 prediction error (SBD 방식): 별도 모듈 불필요,
+    VLA backbone이 이미 학습 중이므로 재활용 가능
+  → DINOv2 visual similarity (LOTUS/UBoCo 방식): vision-only,
+    lightweight, pi0.5와 쉽게 통합 가능
+  → Kinematic (AWE 방식): 가장 단순하지만 vision 정보 없음
+
+Open Questions:
+  - 어떤 신호가 VLA의 long-horizon 성능과 가장 잘 연결되는가?
+  - event boundary를 온라인(inference time)으로도 탐지할 수 있는가?
+  - keyframe 수를 동적으로 결정할 수 있는가?
+
+------------------------------------------------------------
+### Idea 2: Annotation-Conditional Chain-of-Thought + Perceptual Memory
 # Difficulty: High / Novelty: Clear
 ------------------------------------------------------------
 
