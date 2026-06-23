@@ -61,10 +61,31 @@ built on top of pi0.5. Memory is parameterized along two axes:
     - TokenDrop < FrameSamp: 과도한 token pruning이 global
       spatial context 손실 → distance-aware task 성능 저하
 
+[Implementation Detail: Language Input & Chain-of-Thought]
+# Confirmed from code: history_pi0.py embed_prefix() lines 468-484
+
+    - pi0.5 원본은 two-stage: obs → text subtask 생성 →
+      [obs + text subtask] → action 생성 (chain-of-thought)
+
+    - RoboMME perceptual에서는 chain-of-thought 제거됨.
+      PREFIX = [memory tokens] + [image tokens] + [tokenized_prompt]
+      tokenized_prompt = task instruction만 ("clean the bedroom" 등)
+      → subtask text 생성 단계 없음
+
+    - Symbolic variant만 symbolic_tokenized_prompt 사용
+      (Qwen이 예측한 subgoal text를 language input으로 사용)
+
+    - 결과적으로 perceptual 모델은:
+      task instruction + history frame만 보고
+      chain-of-thought 없이 action 직접 생성해야 함
+      → history를 얼마나 잘 활용하는지가 성능의 핵심
+
 [Limitation]
     - Naive history concat 수준 (no retrieval, no consolidation)
     - 고정된 budget B로 균등 샘플링 → task-relevant frame을
       선택하는 메커니즘 없음
+    - Chain-of-thought 제거로 인해 "현재 무엇을 해야 하는지"를
+      perceptual history만으로 파악해야 함
 
 
 ------------------------------------------------------------
