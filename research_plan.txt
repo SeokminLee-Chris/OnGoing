@@ -244,6 +244,39 @@ built on top of pi0.5. Memory is parameterized along two axes:
 
 
 =============================================================
+## Limitations of Previous Approaches
+=============================================================
+
+------------------------------------------------------------
+### Symbolic Memory 계열의 한계
+------------------------------------------------------------
+
+[1. Annotation Cost]
+
+Memory를 언어 형태의 subgoal로 저장하는 Symbolic Memory 계열은 긴
+작업을 계획하고 추론하는 데 강점을 보이지만, 그 대가도 분명하다.
+일반적인 VLA가 (observation, task, action) 형태의 demonstration만으로
+학습되는 반면, Symbolic Memory는 추가적인 subtask 또는 subgoal
+annotation이 필요하다. 실제로 RoboMME는 이러한 방식이 VLM 학습을 위한
+subgoal annotation을 요구한다고 명시하며, 최근 NILS와 같은 연구들 역시
+인간이 부여한 instruction annotation이 데이터 스케일링의 병목이 될 수
+있다고 지적한다. 결국 성능 향상과 별개로, 데이터 구축 비용 측면에서는
+더 높은 진입 장벽을 가진 접근법이라 볼 수 있다.
+
+[2. Inference Latency]
+
+또 다른 문제는 추론 속도다. Symbolic Memory는 보통 Planner VLM이 현재
+상황을 해석하고 다음 subgoal을 생성한 뒤, 이를 정책 모델이 받아 행동을
+생성하는 계층적 구조를 사용한다. 이 과정은 planner inference를 추가로
+필요로 하며, 실제 로봇 제어에서는 수 초 수준의 지연조차 성능 저하로
+이어질 수 있다. 최근 embodied AI 연구들 역시 planner latency를 중요한
+평가 요소로 다루고 있으며, 이를 줄이기 위한 다양한 방법들이 제안되고
+있다. 따라서 Symbolic Memory는 강력한 reasoning 능력을 제공할 수 있지만,
+annotation cost와 inference latency라는 현실적인 trade-off 역시 함께
+고려해야 한다.
+
+
+=============================================================
 ## Dataset
 =============================================================
 
