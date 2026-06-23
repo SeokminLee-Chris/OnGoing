@@ -414,11 +414,41 @@ Design Refinements:
         MEM의 language memory: LLM이 subtask를 자연어로 압축
     - 차이점: 우리는 annotation-free로, VLM 자체의 내부 표현을 재활용
 
+  [3. VLM-Driven Dynamic Memory (task-adaptive, latency-free)]
+    - task마다 최적 memory 전략이 다름:
+        · raw visual vs VLM EOS token 중 뭐가 더 중요한지
+        · 저장 주기 (매 5 step? 매 20 step?)
+        · memory budget 배분
+    - task 시작 전 LLM에게 task instruction을 주고 memory 전략 결정
+      (task 시작 전 1회 → inference latency에 영향 없음)
+
+    - 실행 중 VLM 역할:
+        · "지금이 keyframe인가?" 판단 (event segmentation)
+        · "visual token으로 저장? EOS token으로 저장?" 결정
+        · action 생성과 완전히 병렬로 동작 → latency 0
+
+    - action model은 subtask text를 절대 받지 않음:
+        action input = [current obs] + [task instruction] + [compressed memory]
+        subtask가 있더라도 memory management에만 사용
+        → action path에 VLM latency 전혀 없음
+
+    핵심 insight:
+        기존 연구들은 subtask를 memory로 쓰면서 동시에 action conditioning에도 씀
+        → VLM latency가 action 생성에 직결
+        우리는 subtask/VLM을 memory 관리에만 사용
+        → "memory가 충분히 좋으면 subtask로 action을 conditioning할 필요 없다"
+
+    관련 선행연구와의 차이:
+        MemER:     VLM subtask → action conditioning    (latency 직접 영향)
+        RoboMME symbolic: Qwen subtask → action conditioning (latency 직접 영향)
+        우리:      VLM → memory management only         (action path 독립)
+
 Open Questions:
   - 어떤 신호가 VLA의 long-horizon 성능과 가장 잘 연결되는가?
   - event boundary를 온라인(inference time)으로도 탐지할 수 있는가?
   - keyframe 수를 동적으로 결정할 수 있는가?
   - EOS/CLS token vs raw visual token: 어느 시점부터 압축해도 되는가?
+  - task-adaptive memory 전략이 실제로 uniform보다 얼마나 좋은가?
 
 ------------------------------------------------------------
 ### Idea 2: Motion-Aware Video Encoding for Recent Frame Compression
