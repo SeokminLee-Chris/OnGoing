@@ -217,5 +217,67 @@ scp -r dsa@192.168.0.5:/raid/seokmin/seokmin/robomme_policy_learning/runs/ckpts/
 # → 동일하게 eval.sh 실행 (CKPT_ID=79999)
 
 =============================================================
+## STEP 9: Phase 10 — Symbolic+Grounded+QwenVL 평가
+=============================================================
+
+# 추가로 필요한 파일:
+#   1. hf_cache (Qwen3-VL 기본 모델 ~8GB) — STEP 3에서 스킵했다면 지금 scp
+#   2. symbolic-grounded-subgoal policy 체크포인트 (11.6 GB)
+#   3. Qwen grounded subgoal 어댑터 체크포인트 (1.08 GB)
+
+# ---------- A: hf_cache scp (4090에서) ----------
+# STEP 3에서 이미 받았으면 스킵
+scp -r dsa@192.168.0.5:/raid/seokmin/hf_cache ~/seokmin/memory/
+
+# ---------- B: 체크포인트 다운로드 (외부망 컴퓨터에서) ----------
+
+# Policy checkpoint (11.6 GB)
+curl -L -o 79999.zip \
+  "https://huggingface.co/Yinpei/mme_vla_suite/resolve/main/symbolic-grounded-subgoal/79999.zip"
+curl -L -o history_config.txt \
+  "https://huggingface.co/Yinpei/mme_vla_suite/resolve/main/symbolic-grounded-subgoal/history_config.txt"
+
+# Qwen 어댑터 (1.08 GB)
+curl -L -o checkpoint-1200.zip \
+  "https://huggingface.co/Yinpei/vlm_subgoal_predictor/resolve/main/qwenvl/grounded_subgoal/checkpoint-1200.zip"
+
+# ---------- C: 4090에 배치 (호스트에서) ----------
+mkdir -p ~/seokmin/memory/runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal
+mkdir -p ~/seokmin/memory/runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal
+
+# Policy
+cp history_config.txt ~/seokmin/memory/runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/
+cp 79999.zip          ~/seokmin/memory/runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/
+
+# Qwen 어댑터
+cp checkpoint-1200.zip ~/seokmin/memory/runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal/
+
+# ---------- D: unzip (컨테이너 안에서) ----------
+# runs/ckpts 아래 모든 zip을 한 번에 처리 (이미 unzip된 건 skip)
+.venv/bin/python scripts/unzip_ckpt.py runs/ckpts
+# 결과:
+#   runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/79999/
+#   runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal/checkpoint-1200/
+
+# ---------- E: eval.sh 변수 편집 ----------
+# scripts/eval.sh 상단:
+#   MODEL_TYPE="symbolic_groundedSG_qwenvl"
+#   SEED=7
+#   CKPT_ID=79999
+#   GPU_ID_server=0
+#   GPU_ID_client=1
+
+# ---------- F: 평가 실행 (컨테이너 안) ----------
+bash scripts/eval.sh
+
+# 결과 확인
+.venv/bin/python scripts/compute_results.py \
+  --model_dir symbolic-grounded-subgoal \
+  --ckpt_list ckpt79999 \
+  --seed_list seed7
+
+# 결과 저장 위치: runs/evaluation/symbolic-grounded-subgoal/ckpt79999/seed7/qwenvl/
+
+=============================================================
 # perfect. we are done
 =============================================================

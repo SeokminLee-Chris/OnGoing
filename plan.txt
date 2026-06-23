@@ -410,6 +410,16 @@ micromamba run -n robomme bash scripts/finetune_vlm_subgoal_predictor.sh
 
 # Checkpoint → runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal/
 
+# 8-3. [TODO] 저자 preprocessed data로 재훈련 (데이터 1.5배 차이 확인됨)
+# 우리 빌드: 24 MB / ~28K samples / 876 steps
+# 저자 데이터: 36.9 MB / ~43K samples / ~1400 steps (HF: Yinpei/robomme_preprocessed_data)
+# 외부망에서 다운 후 A100 이동:
+#   curl -L -o grounded_subgoal_train.jsonl \
+#     "https://huggingface.co/datasets/Yinpei/robomme_preprocessed_data/resolve/main/qwenvl/grounded_subgoal_train.jsonl"
+#   curl -L -o images.zip \
+#     "https://huggingface.co/datasets/Yinpei/robomme_preprocessed_data/resolve/main/qwenvl/images.zip"
+# → data/robomme_preprocessed_data/qwenvl/ 에 배치 후 8-2 동일하게 재실행
+
 ------------------------------------------------------------
 ### PHASE 9: Train Symbolic+Grounded (symbolic-grounded-subgoal)
 ------------------------------------------------------------
@@ -431,22 +441,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
 ------------------------------------------------------------
 ### PHASE 10: Evaluate Symbolic+Grounded + QwenVL
 ------------------------------------------------------------
-# Edit eval.sh before running:
-#   MODEL_TYPE="symbolic_groundedSG_qwenvl"
-#   SEED=7
-#   CKPT_ID=79999
-#   GPU_ID_server=0
-#   GPU_ID_client=1
-
-bash scripts/eval.sh
-
-# Results → runs/evaluation/symbolic-grounded-subgoal/ckpt79999/seed7/
-
-# Gather final numbers:
-.venv/bin/python scripts/compute_results.py \
-    --model_dir symbolic-grounded-subgoal \
-    --ckpt_list ckpt79999 \
-    --seed_list seed7
+# → 4090_evaluation.txt STEP 9 참고
 
 =============================================================
 ## Error Resolving Log
