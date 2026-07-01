@@ -377,6 +377,26 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
 # Checkpoint → runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/
 
 ------------------------------------------------------------
+### PHASE 6-B300: Train FrameSamp+Perceptual on B300 x2 (fair comparison)
+------------------------------------------------------------
+# Target machine: 2x B300, batch-size=64 유지 (per-device 32 — fair comparison with A100 4x)
+# Note: --fsdp-devices=2, CUDA_VISIBLE_DEVICES=0,1
+
+CUDA_VISIBLE_DEVICES=0,1 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
+XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false" \
+.venv/bin/python scripts/train.py mme_vla_suite \
+    --exp-name=perceptual-framesamp-modul \
+    --batch-size=64 \
+    --num-workers=4 \
+    --fsdp-devices=2 \
+    --dataset-path=data/robomme_preprocessed_data \
+    --model.use_history \
+    --model.history_config="perceptual-framesamp-modul.yaml" \
+    --overwrite
+
+# Checkpoint → runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/
+
+------------------------------------------------------------
 ### PHASE 7: Evaluate FrameSamp+Perceptual ✅ DONE
 ------------------------------------------------------------
 # ⚠️ 실행 위치: 회사 4090 (2x RTX 4090)
@@ -466,6 +486,25 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
 
 # Checkpoint → runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/
 # NOTE: 훈련 시 Qwen 개입 없음. 데이터셋 h5의 GT grounded_subgoal 텍스트를 language token으로 직접 입력
+
+------------------------------------------------------------
+### PHASE 9-B300: Train Symbolic+Grounded on B300 x2 (fair comparison)
+------------------------------------------------------------
+# Target machine: 2x B300, batch-size=64 유지 (per-device 32 — fair comparison with A100 4x)
+
+CUDA_VISIBLE_DEVICES=0,1 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
+XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false" \
+.venv/bin/python scripts/train.py mme_vla_suite \
+    --exp-name=symbolic-grounded-subgoal \
+    --batch-size=64 \
+    --num-workers=4 \
+    --fsdp-devices=2 \
+    --dataset-path=data/robomme_preprocessed_data \
+    --model.use_history \
+    --model.history_config="symbolic-grounded-subgoal.yaml" \
+    --overwrite
+
+# Checkpoint → runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/
 
 ------------------------------------------------------------
 ### PHASE 10: Evaluate Symbolic+Grounded + QwenVL
@@ -561,6 +600,18 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
   grounded 훈련 시 finetune_vlm_subgoal_predictor.sh 상단 변수 반드시 수정:
     DATASET_PATH='data/robomme_preprocessed_data/qwenvl/grounded_subgoal_train.jsonl'
     OUTPUT_DIR='runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal'
+
+=============================================================
+## B300 Training Log
+=============================================================
+- Dockerfile_b300 작성 완료 ✅
+  → Base image: cuda:13.2.0-cudnn-runtime-ubuntu24.04 (B300, driver 595.71.05, CUDA 13.2)
+  → jax[cuda12]==0.5.3 (B300 sm_103 미지원) → jax[cuda13] 최신으로 업그레이드
+  → 빌드 성공: mme_vla_b300:cuda13.2 ✅
+  → Docker Hub 푸시 완료: addseokmin/mme_vla_b300:cuda13.2 ✅
+  → B300에서 받기: docker pull addseokmin/mme_vla_b300:cuda13.2
+- norm_stats.json 누락 이슈: runs/assets/mme_vla_suite/ 에 파일 없어서 NoneType 에러 발생
+  → cp assets/norm_stats.json runs/assets/mme_vla_suite/ 후 compute_norm_stats.py 재실행으로 해결
 
 =============================================================
 ## Backup Memo
