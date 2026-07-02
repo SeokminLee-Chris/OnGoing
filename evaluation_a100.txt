@@ -1,0 +1,200 @@
+# A100 Evaluation Setup
+# 목적: A100에서 훈련된 체크포인트(또는 공개 체크포인트)로 evaluation 진행
+#
+# 환경:
+#   - A100 (4x80GB): Docker 이미지, 데이터 전부 이미 존재
+#   - 인터넷 없는 환경 (TRANSFORMERS_OFFLINE=1)
+#   - 훈련 완료 후 A100에서 직접 평가 진행
+#
+# 기본 작업 디렉토리 (A100): /raid/seokmin/seokmin/robomme_policy_learning/
+#
+# ✅ 4090과 달리 scp/이미지 전송 없음 — 모든 데이터 이미 A100에 존재
+
+=============================================================
+## Docker Quick Start (컨테이너 재시작할 때마다)
+=============================================================
+docker run --rm -it --gpus all \
+  --ipc=host \
+  --security-opt seccomp=unconfined \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video \
+  -e OPENPI_DATA_HOME=/openpi_data \
+  -e HF_HOME=/hf_cache \
+  -e TRANSFORMERS_OFFLINE=1 \
+  -e WANDB_MODE=offline \
+  -v /raid/seokmin/openpi_data:/openpi_data \
+  -v /raid/seokmin/hf_cache:/hf_cache \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/scripts:/app/scripts \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
+  mme_vla:cuda12.8 bash
+
+# 진입 후 항상 실행
+SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
+
+# robomme env 필요할 때 (eval client 등)
+eval "$(micromamba shell hook --shell bash)"
+micromamba activate robomme
+
+=============================================================
+## STEP 0: 데이터/파일 존재 확인 (A100 호스트에서)
+=============================================================
+# openpi_data
+ls /raid/seokmin/openpi_data/
+
+# robomme_benchmark
+ls /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark/
+
+# norm_stats.json
+ls /raid/seokmin/seokmin/robomme_policy_learning/runs/assets/mme_vla_suite/norm_stats.json
+
+# 체크포인트 확인 (훈련된 ckpt or 공개 ckpt)
+ls /raid/seokmin/seokmin/robomme_policy_learning/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/
+
+# history_config.txt 반드시 존재해야 함 (79999/ 폴더와 같은 레벨)
+ls /raid/seokmin/seokmin/robomme_policy_learning/runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/history_config.txt
+
+=============================================================
+## STEP 1: Docker 컨테이너 실행 (A100에서)
+=============================================================
+docker run --rm -it --gpus all \
+  --ipc=host \
+  --security-opt seccomp=unconfined \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video \
+  -e OPENPI_DATA_HOME=/openpi_data \
+  -e HF_HOME=/hf_cache \
+  -e TRANSFORMERS_OFFLINE=1 \
+  -e WANDB_MODE=offline \
+  -v /raid/seokmin/openpi_data:/openpi_data \
+  -v /raid/seokmin/hf_cache:/hf_cache \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/scripts:/app/scripts \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
+  mme_vla:cuda12.8 bash
+
+=============================================================
+## STEP 2: 컨테이너 진입 후 설정 (최초 1회)
+=============================================================
+# pytest stub
+SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
+
+# eval.sh 패치 1: uv run → .venv/bin/python
+sed -i 's/uv run scripts\/serve_policy/.venv\/bin\/python scripts\/serve_policy/' scripts/eval.sh
+
+# eval.sh 패치 2: micromamba shell hook 추가
+sed -i 's/micromamba activate robomme/eval \"$(micromamba shell hook --shell bash)\" \&\& micromamba activate robomme/' scripts/eval.sh
+
+# 패치 확인
+grep -E "serve_policy|micromamba" scripts/eval.sh | head -5
+
+=============================================================
+## STEP 3: 체크포인트 unzip (zip 형태인 경우)
+=============================================================
+ls runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/79999/
+
+# zip 파일 있으면 unzip
+.venv/bin/python scripts/unzip_ckpt.py runs/ckpts
+
+=============================================================
+## STEP 4: 평가 실행 — perceptual-framesamp-modul (컨테이너 안)
+=============================================================
+# scripts/eval.sh 상단 변수 편집:
+#   MODEL_TYPE="perceptual-framesamp-modul"
+#   SEED=7
+#   CKPT_ID=79999
+#   GPU_ID_server=0    ← A100 GPU 0 (4개 중 자유롭게 선택)
+#   GPU_ID_client=1    ← A100 GPU 1
+
+bash scripts/eval.sh
+
+# 로그 확인하려면 새 터미널에서:
+docker ps                          # container_id 확인
+docker exec -it <container_id> bash
+
+# 컨테이너 안에서:
+tmux list-sessions                 # session_name 확인
+tmux attach -t <session_name>      # 세션 붙기
+# 창 전환: Ctrl+b → n (다음 창)
+# 창 목록: Ctrl+b → w
+# 세션 detach (나오기): Ctrl+b → d
+
+# 결과 확인
+.venv/bin/python scripts/compute_results.py \
+  --model_dir perceptual-framesamp-modul \
+  --ckpt_list ckpt79999 \
+  --seed_list seed7
+
+# 결과 저장 위치: runs/evaluation/perceptual-framesamp-modul/ckpt79999/seed7/
+
+=============================================================
+## STEP 5 (Phase 10): Symbolic+Grounded+QwenVL 평가
+=============================================================
+
+# 추가로 필요한 파일:
+#   1. symbolic-grounded-subgoal policy 체크포인트 (11.6 GB)
+#   2. Qwen grounded subgoal 어댑터 체크포인트 (1.08 GB)
+#   (hf_cache는 A100에 이미 존재)
+
+# ---------- A: 체크포인트 배치 (외부망 컴퓨터에서 다운 후 USB → A100) ----------
+mkdir -p /raid/seokmin/seokmin/robomme_policy_learning/runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal
+mkdir -p /raid/seokmin/seokmin/robomme_policy_learning/runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal
+
+# 배치 후 구조:
+#   runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/history_config.txt
+#   runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/79999/
+#   runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal/checkpoint-1200/
+
+# ---------- B: unzip (컨테이너 안에서) ----------
+.venv/bin/python scripts/unzip_ckpt.py runs/ckpts
+
+# ---------- C: api.py 패치 (컨테이너 안, 최초 1회) ----------
+# examples/robomme/subgoal_prediction/qwenvl/api.py는 Docker 이미지에 baked-in
+# → 컨테이너 안에서 직접 수정 필요
+
+# 패치: Qwen 모델 경로 로컬로 변경
+sed -i "s|model_id_or_path='Qwen/Qwen3-VL-4B-Instruct'|model_id_or_path='/hf_cache/hub/models--Qwen--Qwen3-VL-4B-Instruct'|" \
+  examples/robomme/subgoal_prediction/qwenvl/api.py
+
+# ✅ A100은 flash_attention_2 지원 → sdpa 패치 불필요 (4090과 다른 점)
+
+# 확인
+grep -E "model_id_or_path|attn_impl" examples/robomme/subgoal_prediction/qwenvl/api.py
+
+# ---------- D: eval.sh 변수 편집 ----------
+# scripts/eval.sh 상단:
+#   MODEL_TYPE="symbolic_groundedSG_qwenvl"
+#   SEED=7
+#   CKPT_ID=79999
+#   GPU_ID_server=0
+#   GPU_ID_client=1
+
+# ---------- E: 평가 실행 (컨테이너 안) ----------
+bash scripts/eval.sh
+
+# 결과 확인
+.venv/bin/python scripts/compute_results.py \
+  --model_dir symbolic-grounded-subgoal \
+  --ckpt_list ckpt79999 \
+  --seed_list seed7
+
+# 결과 저장 위치: runs/evaluation/symbolic-grounded-subgoal/ckpt79999/seed7/qwenvl/
+
+=============================================================
+## Error Resolving
+=============================================================
+
+### history_config.txt 누락 → AttributeError: 'NoneType' has no attribute 'integration_type'
+# 증상: serve_policy 실행 시 policy_config.py에서 AttributeError 발생
+# 원인: policy_config.py가 checkpoint_dir.parent/history_config.txt 를 읽어 history_config 설정
+# 해결: perceptual-framesamp-modul/ 바로 아래에 history_config.txt 배치
+#       (79999/ 폴더와 같은 레벨)
+
+### NVLink deadlock (훈련 때와 동일)
+# serve_policy가 멀티 GPU 쓸 경우 발생 가능
+# 해결: XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false"
+# eval.sh에 이미 포함되어 있는지 확인
+
+### micromamba activate 실패
+# 증상: micromamba: command not found
+# 해결: eval "$(micromamba shell hook --shell bash)" 먼저 실행 (eval.sh 패치 2 확인)

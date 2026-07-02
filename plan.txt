@@ -602,6 +602,41 @@ XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false" \
     OUTPUT_DIR='runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal'
 
 =============================================================
+## B300 Docker Quick Start (매번 컨테이너 시작할 때)
+=============================================================
+# Image: mme_vla_b300:cuda13.2 (도커허브: addseokmin/mme_vla_b300:cuda13.2)
+#   → 없으면: docker pull addseokmin/mme_vla_b300:cuda13.2
+
+# 1. 컨테이너 실행
+docker run --rm -it --gpus all \
+  --ipc=host \
+  --security-opt seccomp=unconfined \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video \
+  -e OPENPI_DATA_HOME=/openpi_data \
+  -e HF_HOME=/hf_cache \
+  -e TRANSFORMERS_OFFLINE=1 \
+  -e WANDB_MODE=offline \
+  -v /raid/seokmin/openpi_data:/openpi_data \
+  -v /raid/seokmin/hf_cache:/hf_cache \
+  -v /usr/local/cuda-13.2:/usr/local/cuda \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/scripts:/app/scripts \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
+  mme_vla_b300:cuda13.2 bash
+# NOTE: /usr/local/cuda-13.2 마운트는 Phase 8 (finetune_vlm_subgoal_predictor) nvcc 필요 시
+#       훈련(train.py)만 할 경우 jax[cuda13] 번들 CUDA로 충분, 마운트 생략 가능
+
+# 2. 컨테이너 진입 후 항상 실행
+SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
+
+# 3. robomme env 필요할 때 (평가 등)
+eval "$(micromamba shell hook --shell bash)"
+micromamba activate robomme
+
+=============================================================
 ## B300 Training Log
 =============================================================
 - Dockerfile_b300 작성 완료 ✅
@@ -612,6 +647,11 @@ XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false" \
   → B300에서 받기: docker pull addseokmin/mme_vla_b300:cuda13.2
 - norm_stats.json 누락 이슈: runs/assets/mme_vla_suite/ 에 파일 없어서 NoneType 에러 발생
   → cp assets/norm_stats.json runs/assets/mme_vla_suite/ 후 compute_norm_stats.py 재실행으로 해결
+- ml_dtypes 버전 충돌 이슈: jax[cuda13] 실행 시 "JAX requires ml_dtypes version 0.5 or newer; installed version is 0.4.1" 에러
+  → 원인: pyproject.toml의 override-dependencies가 ml-dtypes==0.4.1로 고정 → uv sync가 이를 따름
+  → 해결: Dockerfile_b300의 jax[cuda13] pip install에 "ml_dtypes>=0.5" 추가 (uv pip install은 override 무시)
+  → ⚠️ Docker 이미지 재빌드 필요: docker build -t mme_vla_b300:cuda13.2 -f Dockerfile_b300 .
+  → 재빌드 후 Docker Hub 재푸시: docker push addseokmin/mme_vla_b300:cuda13.2
 
 =============================================================
 ## Backup Memo

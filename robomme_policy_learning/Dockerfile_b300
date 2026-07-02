@@ -53,8 +53,11 @@ RUN uv sync --frozen --no-dev --no-install-project --python 3.11
 # uv.lock pins jax[cuda12]==0.5.3 which predates B300 — its bundled XLA does not
 # recognize compute capability 10.3 and falls back to sm_101.
 # jax[cuda13] bundles CUDA 13 libraries and ships a newer XLA with sm_103 support.
-# NOTE: if jax[cuda13] does not yet exist on PyPI, fall back to: uv pip install --python .venv/bin/python -U "jax[cuda12]"
-RUN uv pip install --python .venv/bin/python -U "jax[cuda13]"
+# ml_dtypes is also upgraded here: pyproject.toml overrides it to ==0.4.1 via uv,
+# but jax[cuda13] requires >=0.5 — uv pip install bypasses the override.
+# tensorstore==0.1.74 has no version constraint on ml_dtypes so this is safe.
+# NOTE: if jax[cuda13] does not yet exist on PyPI, fall back to: uv pip install --python .venv/bin/python -U "jax[cuda12]" "ml_dtypes>=0.5"
+RUN uv pip install --python .venv/bin/python -U "jax[cuda13]" "ml_dtypes>=0.5"
 
 # Install micromamba and set up a dedicated robomme env for evaluation.
 # This is only for evaluation, not for training.
