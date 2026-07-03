@@ -7,3 +7,9 @@
 [ ] 2. Code studying
 
 [ ] 3. Agent paper read
+
+=============================================================
+## 2026-07-02
+=============================================================
+- Check the meeting ppt for all the history I made so far
+  → meeting_ppts/2026-07-02.pptx
