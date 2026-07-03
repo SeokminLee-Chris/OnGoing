@@ -16,7 +16,7 @@ FPS_MAX_FRAMES=10 \
 NPROC_PER_NODE=4 \
 CUDA_VISIBLE_DEVICES=0,1,2,3 \
 swift sft \
-    --model 'Qwen/Qwen3-VL-4B-Instruct' \
+    --model '/hf_cache/hub/models--Qwen--Qwen3-VL-4B-Instruct' \
     --dataset $DATASET_PATH \
     --split_dataset_ratio 0.0 \
     --load_from_cache_file true \
