@@ -1,8 +1,9 @@
 =============================================================
 ## TODO
 =============================================================
-[ ] 1. Evaluate NVLink-trained checkpoint
-       → 결과 위치: ~/seokmin/memory/runs/evaluation/ckpt79999/
-
-[ ] 2. Analyze evaluated symbolic-grounded-subgoal logs
+[ ] 1. Analyze evaluated symbolic-grounded-subgoal logs
        → subgoal prediction 로그 분석
+
+[ ] 2. Code studying
+
+[ ] 3. Agent paper read

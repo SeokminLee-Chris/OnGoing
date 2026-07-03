@@ -1,0 +1,9 @@
+=============================================================
+## Research Ideas
+=============================================================
+
+### Idea 1: Training-Free Agentic System
+
+
+### Idea 2: Simple Modular System for Paper
+
