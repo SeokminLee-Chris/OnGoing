@@ -11,7 +11,8 @@
 # 디렉토리 구조:
 #   ~/seokmin/memory/
 #   ├── openpi_data/                              ← A100에서 scp
-#   ├── hf_cache/                                 ← A100에서 scp (Phase 10만 필요)
+#   ├── hf_cache/                                 ← A100에서 scp (symbolic+qwenvl eval 필요)
+#   ├── scripts/                                  ← A100에서 scp → 컨테이너에 마운트
 #   ├── third_party/
 #   │   └── robomme_benchmark/                    ← A100에서 scp → 컨테이너에 마운트
 #   └── runs/

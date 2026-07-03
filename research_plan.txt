@@ -26,3 +26,16 @@ Windows PC에서 코드 수정 후 A100에 반영할 때 절대 repo 전체를 �
        → replace /raid/seokmin/seokmin/robomme_policy_learning/ on A100 with downloaded version
     5. Run on A100, check results / errors
     6. If error → paste logs here → fix on Windows → repeat from step 2
+
+=============================================================
+## 4090 Evaluation: Custom Model (src/ 변경 시)
+=============================================================
+- Docker 이미지에 src/가 baked-in → src/ 변경 시 이미지 재빌드 없이 mount로 해결 가능
+- 평가에 필요한 것:
+    1. 새 체크포인트 → ~/seokmin/memory/runs/ckpts/... 에 scp
+    2. 변경된 src/ → ~/seokmin/memory/src/ 에 scp
+    3. docker run 커맨드에 아래 마운트 추가:
+         -v ~/seokmin/memory/src:/app/src \
+
+- third_party/robomme_benchmark 는 평가 환경(시뮬레이터)으로 모델과 무관 → 변경 불필요
+- scripts/ 는 이미 마운트됨 → eval.sh 등 수정 즉시 반영
