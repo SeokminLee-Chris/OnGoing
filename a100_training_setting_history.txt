@@ -1,85 +1,20 @@
 # A100 Setting Log
 
 =============================================================
-## ⚠️ WARNING: A100 코드 업데이트 시 주의
+## A100 Setup Steps (in order)
 =============================================================
-A100의 robomme_policy_learning/ 안에는 data/, runs/ 등 대용량 데이터가 있음.
-Windows PC에서 코드 수정 후 A100에 반영할 때 절대 repo 전체를 덮어쓰지 말 것!
-
-안전한 방법:
-  - src/ 만 복사: cp -r robomme_policy_learning/src/ /raid/.../robomme_policy_learning/src/
-  - 또는 scripts/, assets/ 등 수정한 디렉토리만 골라서 복사
-  - data/, runs/ 는 절대 건드리지 말 것
-
-=============================================================
-## Future TODO (not necessary)
-=============================================================
-- [x] NVLink 활성화: ✅ RESOLVED
-       → 해결책: NCCL_P2P_DISABLE=1 제거 + XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false" 추가
-       → 근본 원인: JAX 0.5.3이 XLA latency hiding scheduler를 기본 활성화
-                    → async collective dispatch → NVLink P2P와 race condition → XLA rendezvous deadlock
-       → 시도한 실패 방법:
-          1. NCCL_LAUNCH_MODE=GROUP → XLA rendezvous timeout 후 abort (GPU freeze는 해결됐으나 XLA 레벨 deadlock)
-          2. XLA_FLAGS="--xla_gpu_enable_async_collectives=false" → unknown flag (JAX 0.5.3에 없음)
-       → 훈련 커맨드 업데이트: PHASE 6/9 참고
-
-=============================================================
-## Docker Quick Start (매번 컨테이너 시작할 때)
-=============================================================
-# 1. 컨테이너 실행
-cd /raid/seokmin/seokmin/robomme_policy_learning
-docker run --rm -it --gpus all \
-  --ipc=host \
-  --security-opt seccomp=unconfined \
-  -e NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video \
-  -e OPENPI_DATA_HOME=/openpi_data \
-  -e HF_HOME=/hf_cache \
-  -e TRANSFORMERS_OFFLINE=1 \
-  -e WANDB_MODE=offline \
-  -v /raid/seokmin/openpi_data:/openpi_data \
-  -v /raid/seokmin/hf_cache:/hf_cache \
-  -v /usr/local/cuda-12.8:/usr/local/cuda \
-  -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
-  -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
-  -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets \
-  -v /raid/seokmin/seokmin/robomme_policy_learning/scripts:/app/scripts \
-  -v /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
-  mme_vla:cuda12.8 bash
-# NOTE: third_party/robomme_benchmark 마운트는 eval(Phase 7, 10)에 필요. 훈련(train.py)은 불필요하나 마운트해도 무해
-
-# 2. 컨테이너 진입 후 항상 실행
-# pytest stub (gemma_pytorch.py가 pytest.Cache를 타입힌트로 사용, --no-dev 빌드라 미설치)
-SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
-echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
-
-# 3. robomme env 필요할 때 (평가 등)
-eval "$(micromamba shell hook --shell bash)"
-micromamba activate robomme
-
-
-# Target machine: 4x A100 80GB, Ubuntu 20.04, no internet
-# Transfer medium: 2TB USB
-# Available disk on A100: 1.3TB
-# A100 home dir: /raid/seokmin/   (i.e., ~ = /raid/seokmin)
-# A100 project dir: /raid/seokmin/seokmin/   (USB contents copied here)
-
-=============================================================
-## Development Workflow
-=============================================================
-- Code editing: Windows PC (C:\Users\USER\MemoryForVLA)
-- Execution: A100 (company, no internet) — used as a compute server
-- GitHub repo: https://github.com/SeokminLee-Chris/OnGoing
-  → tracks plan.txt + robomme_policy_learning/ (as regular folder, no nested .git)
-  → third_party/robomme_benchmark/ also tracked as regular files (no submodule)
-
-- Cycle:
-    1. Edit code on Windows PC (with Claude)
-    2. git add / commit / push → OnGoing repo
-    3. Download/clone OnGoing on a machine with internet (home 4090 or Windows)
-    4. Transfer robomme_policy_learning/ to A100 via USB
-       → replace /raid/seokmin/seokmin/robomme_policy_learning/ on A100 with downloaded version
-    5. Run on A100, check results / errors
-    6. If error → paste logs here → fix on Windows → repeat from step 2
+[x] Step 1: Build Docker image on Linux 4090
+[x] Step 2: Download PaliGemma tokenizer (done on Windows)
+[x] Step 3: Download pi05_base weights (done on Windows)
+[x] Step 4: Download pi05_vision_encoder (done on Windows)
+[x] Step 5: Download raw dataset (downloading on Windows → USB)
+[x] Step 6: Download Qwen3-VL-4B-Instruct (downloading on Windows → USB)
+[x] Step 7: On A100 — load Docker image, verify GPU
+[x] Step 8: On A100 — set up directory structure (PHASE 1 & 2 done)
+[x] Step 9: On A100 — preprocess raw dataset inside container
+[x] Step 10: On A100 — train FrameSamp+Perceptual (perceptual-framesamp-modul)
+[ ] Step 11: On A100 — train VLM subgoal predictor for Symbolic+Grounded
+[ ] Step 12: On A100 — train Symbolic+Grounded (symbolic-grounded-subgoal)
 
 =============================================================
 ## A100 Machine Current State
@@ -196,24 +131,6 @@ F:\seokmin\
 ├── pi05_vision_encoder\         ← vision encoder (siglip_params.pkl)
 ├── robomme_data_h5\             ← raw dataset (downloading)
 └── Qwen3-VL-4B-Instruct\       ← (TODO) VLM subgoal predictor model
-
-=============================================================
-## A100 Setup Steps (in order)
-=============================================================
-[x] Step 1: Build Docker image on Linux 4090
-[x] Step 2: Download PaliGemma tokenizer (done on Windows)
-[x] Step 3: Download pi05_base weights (done on Windows)
-[x] Step 4: Download pi05_vision_encoder (done on Windows)
-[x] Step 5: Download raw dataset (downloading on Windows → USB)
-[x] Step 6: Download Qwen3-VL-4B-Instruct (downloading on Windows → USB)
-[x] Step 7: On A100 — load Docker image, verify GPU
-[x] Step 8: On A100 — set up directory structure (PHASE 1 & 2 done)
-[ ] Step 9: On A100 — preprocess raw dataset inside container
-[ ] Step 10: On A100 — train FrameSamp+Perceptual (perceptual-framesamp-modul)
-[ ] Step 11: On A100 — evaluate FrameSamp+Perceptual
-[ ] Step 12: On A100 — train VLM subgoal predictor for Symbolic+Grounded
-[ ] Step 13: On A100 — train Symbolic+Grounded (symbolic-grounded-subgoal)
-[ ] Step 14: On A100 — evaluate Symbolic+Grounded + QwenVL
 
 =============================================================
 ## ⚠️ Key Notes
@@ -377,36 +294,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
 # Checkpoint → runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/
 
 ------------------------------------------------------------
-### PHASE 6-B300: Train FrameSamp+Perceptual on B300 x2 (fair comparison)
-------------------------------------------------------------
-# Target machine: 2x B300, batch-size=64 유지 (per-device 32 — fair comparison with A100 4x)
-# Note: --fsdp-devices=2, CUDA_VISIBLE_DEVICES=0,1
-
-CUDA_VISIBLE_DEVICES=0,1 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
-XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false" \
-.venv/bin/python scripts/train.py mme_vla_suite \
-    --exp-name=perceptual-framesamp-modul \
-    --batch-size=64 \
-    --num-workers=4 \
-    --fsdp-devices=2 \
-    --dataset-path=data/robomme_preprocessed_data \
-    --model.use_history \
-    --model.history_config="perceptual-framesamp-modul.yaml" \
-    --overwrite
-
-# Checkpoint → runs/ckpts/mme_vla_suite/perceptual-framesamp-modul/
-
-------------------------------------------------------------
-### PHASE 7: Evaluate FrameSamp+Perceptual ✅ DONE
-------------------------------------------------------------
-# ⚠️ 실행 위치: 회사 4090 (2x RTX 4090)
-# 상세 절차: 4090_evaluation.txt 참고
-#
-# [완료] 공개 체크포인트(HuggingFace Yinpei/mme_vla_suite, ckpt 79999)로 eval 환경 정상 확인
-# [예정] A100 훈련 체크포인트로 교체 후 재실행 → 훈련 결과 정상 여부 확인
-
-------------------------------------------------------------
-### PHASE 8: Train VLM Subgoal Predictor (for Symbolic+Grounded)
+### PHASE 7: Train VLM Subgoal Predictor (for Symbolic+Grounded)
 ------------------------------------------------------------
 # 8-1. Build VLM subgoal training data (~30-60 min)
 .venv/bin/python scripts/build_dataset.py \
@@ -456,7 +344,7 @@ micromamba run -n robomme bash scripts/finetune_vlm_subgoal_predictor.sh
 # → data/robomme_preprocessed_data/qwenvl/ 에 배치 후 8-2 동일하게 재실행
 
 ------------------------------------------------------------
-### PHASE 9: Train Symbolic+Grounded (symbolic-grounded-subgoal)
+### PHASE 8: Train Symbolic+Grounded (symbolic-grounded-subgoal)
 ------------------------------------------------------------
 # Inside Docker
 # NVLink 활성화 (권장)
@@ -486,30 +374,6 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 NCCL_P2P_DISABL
 
 # Checkpoint → runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/
 # NOTE: 훈련 시 Qwen 개입 없음. 데이터셋 h5의 GT grounded_subgoal 텍스트를 language token으로 직접 입력
-
-------------------------------------------------------------
-### PHASE 9-B300: Train Symbolic+Grounded on B300 x2 (fair comparison)
-------------------------------------------------------------
-# Target machine: 2x B300, batch-size=64 유지 (per-device 32 — fair comparison with A100 4x)
-
-CUDA_VISIBLE_DEVICES=0,1 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
-XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false" \
-.venv/bin/python scripts/train.py mme_vla_suite \
-    --exp-name=symbolic-grounded-subgoal \
-    --batch-size=64 \
-    --num-workers=4 \
-    --fsdp-devices=2 \
-    --dataset-path=data/robomme_preprocessed_data \
-    --model.use_history \
-    --model.history_config="symbolic-grounded-subgoal.yaml" \
-    --overwrite
-
-# Checkpoint → runs/ckpts/mme_vla_suite/symbolic-grounded-subgoal/
-
-------------------------------------------------------------
-### PHASE 10: Evaluate Symbolic+Grounded + QwenVL
-------------------------------------------------------------
-# → 4090_evaluation.txt STEP 9 참고
 
 =============================================================
 ## Error Resolving Log
@@ -573,7 +437,7 @@ XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false" \
 ## 훈련 특이사항
 =============================================================
 
-### [eval] Qwen subgoal predictor 동작 방식 (Phase 10)
+### [eval] Qwen subgoal predictor 동작 방식
 - 매 step마다 현재 이미지 + 지금까지 예측한 subgoal history → Qwen → "다음 subgoal 하나" 실시간 예측
 - 미리 전체 subgoal을 뽑아두는 것이 아님
 - subgoal이 이전과 달라지면 history에 누적 → 다음 step의 context로 사용
@@ -581,15 +445,15 @@ XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false" \
 - 같은 subgoal이 연속으로 나와도 history에는 한 번만 추가 (마지막 항목과 다를 때만 append)
   → 100 step 동안 "쓰레기 집어라"가 나와도 history = ["쓰레기 집어라"] 유지
 
-### [Phase 8-9] Qwen(subgoal predictor)과 PaliGemma(policy)는 완전히 별도 훈련
-- Phase 8: Qwen finetune → GT subgoal 텍스트로 subgoal 예측 학습
-- Phase 9: PaliGemma policy 훈련 → GT subgoal 텍스트를 language token으로 직접 입력받아 학습
+### [Phase 7-8] Qwen(subgoal predictor)과 PaliGemma(policy)는 완전히 별도 훈련
+- Phase 7: Qwen finetune → GT subgoal 텍스트로 subgoal 예측 학습
+- Phase 8: PaliGemma policy 훈련 → GT subgoal 텍스트를 language token으로 직접 입력받아 학습
   (훈련 중 Qwen은 전혀 개입하지 않음)
-- Phase 10 eval 시에만 Qwen이 실시간으로 subgoal 예측 → policy에 입력
+- eval 시에만 Qwen이 실시간으로 subgoal 예측 → policy에 입력
   → Qwen 예측이 틀리면 policy 입장에서 훈련 때 본 적 없는 입력이 들어오는 것 → 성능 급락 가능
-  → Phase 8 Qwen finetune 품질이 Phase 10 최종 성능을 사실상 결정함
+  → Phase 7 Qwen finetune 품질이 최종 성능을 사실상 결정함
 
-### [Phase 8] VLM Subgoal Predictor 데이터 빌드 & 훈련
+### [Phase 7] VLM Subgoal Predictor 데이터 빌드 & 훈련
 - build_dataset.py --dataset_type vlm_subgoal_qwenvl 한 번 실행으로 simple + grounded 둘 다 생성됨
   → data/robomme_preprocessed_data/qwenvl/simple_subgoal_train.jsonl
   → data/robomme_preprocessed_data/qwenvl/grounded_subgoal_train.jsonl
@@ -600,58 +464,6 @@ XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false" \
   grounded 훈련 시 finetune_vlm_subgoal_predictor.sh 상단 변수 반드시 수정:
     DATASET_PATH='data/robomme_preprocessed_data/qwenvl/grounded_subgoal_train.jsonl'
     OUTPUT_DIR='runs/ckpts/vlm_subgoal_predictor/qwenvl/grounded_subgoal'
-
-=============================================================
-## B300 Docker Quick Start (매번 컨테이너 시작할 때)
-=============================================================
-# Image: mme_vla_b300:cuda13.2 (도커허브: addseokmin/mme_vla_b300:cuda13.2)
-#   → 없으면: docker pull addseokmin/mme_vla_b300:cuda13.2
-
-# 1. 컨테이너 실행
-docker run --rm -it --gpus all \
-  --ipc=host \
-  --security-opt seccomp=unconfined \
-  -e NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video \
-  -e OPENPI_DATA_HOME=/openpi_data \
-  -e HF_HOME=/hf_cache \
-  -e TRANSFORMERS_OFFLINE=1 \
-  -e WANDB_MODE=offline \
-  -v /raid/seokmin/openpi_data:/openpi_data \
-  -v /raid/seokmin/hf_cache:/hf_cache \
-  -v /usr/local/cuda-13.2:/usr/local/cuda \
-  -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
-  -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
-  -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets \
-  -v /raid/seokmin/seokmin/robomme_policy_learning/scripts:/app/scripts \
-  -v /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
-  mme_vla_b300:cuda13.2 bash
-# NOTE: /usr/local/cuda-13.2 마운트는 Phase 8 (finetune_vlm_subgoal_predictor) nvcc 필요 시
-#       훈련(train.py)만 할 경우 jax[cuda13] 번들 CUDA로 충분, 마운트 생략 가능
-
-# 2. 컨테이너 진입 후 항상 실행
-SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
-echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
-
-# 3. robomme env 필요할 때 (평가 등)
-eval "$(micromamba shell hook --shell bash)"
-micromamba activate robomme
-
-=============================================================
-## B300 Training Log
-=============================================================
-- Dockerfile_b300 작성 완료 ✅
-  → Base image: cuda:13.2.0-cudnn-runtime-ubuntu24.04 (B300, driver 595.71.05, CUDA 13.2)
-  → jax[cuda12]==0.5.3 (B300 sm_103 미지원) → jax[cuda13] 최신으로 업그레이드
-  → 빌드 성공: mme_vla_b300:cuda13.2 ✅
-  → Docker Hub 푸시 완료: addseokmin/mme_vla_b300:cuda13.2 ✅
-  → B300에서 받기: docker pull addseokmin/mme_vla_b300:cuda13.2
-- norm_stats.json 누락 이슈: runs/assets/mme_vla_suite/ 에 파일 없어서 NoneType 에러 발생
-  → cp assets/norm_stats.json runs/assets/mme_vla_suite/ 후 compute_norm_stats.py 재실행으로 해결
-- ml_dtypes 버전 충돌 이슈: jax[cuda13] 실행 시 "JAX requires ml_dtypes version 0.5 or newer; installed version is 0.4.1" 에러
-  → 원인: pyproject.toml의 override-dependencies가 ml-dtypes==0.4.1로 고정 → uv sync가 이를 따름
-  → 해결: Dockerfile_b300의 jax[cuda13] pip install에 "ml_dtypes>=0.5" 추가 (uv pip install은 override 무시)
-  → ⚠️ Docker 이미지 재빌드 필요: docker build -t mme_vla_b300:cuda13.2 -f Dockerfile_b300 .
-  → 재빌드 후 Docker Hub 재푸시: docker push addseokmin/mme_vla_b300:cuda13.2
 
 =============================================================
 ## Backup Memo

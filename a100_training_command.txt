@@ -1,0 +1,40 @@
+=============================================================
+## Docker Run
+=============================================================
+cd /raid/seokmin/seokmin/robomme_policy_learning
+
+docker run --rm -it --gpus all \
+  --ipc=host \
+  --security-opt seccomp=unconfined \
+  -e NVIDIA_DRIVER_CAPABILITIES=compute,graphics,utility,video \
+  -e OPENPI_DATA_HOME=/openpi_data \
+  -e HF_HOME=/hf_cache \
+  -e TRANSFORMERS_OFFLINE=1 \
+  -e WANDB_MODE=offline \
+  -v /raid/seokmin/openpi_data:/openpi_data \
+  -v /raid/seokmin/hf_cache:/hf_cache \
+  -v /usr/local/cuda-12.8:/usr/local/cuda \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/data:/app/data \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/runs:/app/runs \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/assets:/app/assets \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/scripts:/app/scripts \
+  -v /raid/seokmin/seokmin/robomme_policy_learning/third_party/robomme_benchmark:/app/third_party/robomme_benchmark \
+  mme_vla:cuda12.8 bash
+
+SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0])")
+echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
+
+=============================================================
+## Train perceptual-framesamp-modul
+=============================================================
+CUDA_VISIBLE_DEVICES=0,1,2,3 XLA_PYTHON_CLIENT_MEM_FRACTION=0.95 \
+XLA_FLAGS="--xla_gpu_enable_latency_hiding_scheduler=false" \
+.venv/bin/python scripts/train.py mme_vla_suite \
+    --exp-name=perceptual-framesamp-modul \
+    --batch-size=64 \
+    --num-workers=4 \
+    --fsdp-devices=4 \
+    --dataset-path=data/robomme_preprocessed_data \
+    --model.use_history \
+    --model.history_config="perceptual-framesamp-modul.yaml" \
+    --overwrite
