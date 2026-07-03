@@ -22,6 +22,19 @@ SITE_PACKAGES=$(.venv/bin/python -c "import site; print(site.getsitepackages()[0
 echo "class Cache: pass" > $SITE_PACKAGES/pytest.py
 
 =============================================================
+## Tmux Monitoring (새 터미널에서)
+=============================================================
+docker ps                          # container_id 확인
+docker exec -it <container_id> bash
+
+# 컨테이너 안에서:
+tmux list-sessions                 # session_name 확인
+tmux attach -t <session_name>      # 세션 붙기
+# 창 전환: Ctrl+b → n
+# 창 목록: Ctrl+b → w
+# detach:  Ctrl+b → d
+
+=============================================================
 ## Evaluate perceptual-framesamp-modul
 =============================================================
 # scripts/eval.sh 상단 변수 편집:
