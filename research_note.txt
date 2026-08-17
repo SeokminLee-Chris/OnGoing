@@ -1,15 +1,28 @@
 =============================================================
-## TODO
+## 2026-08-17
 =============================================================
-[ ] 1. Analyze evaluated symbolic-grounded-subgoal logs
-       → subgoal prediction 로그 분석
 
-[ ] 2. Code studying
+- CaP-X, VoLoAgent Docker 이미지 빌드 및 검증 완료
+  → 검증 현황 상세: benchmark.md 참고
 
-[ ] 3. Agent paper read
+- 벤치마크 선정 논의 필요 (형이랑 얘기해봐야 함)
+  → 무식하게 다 다운받기 전에 연구 framing 먼저 확정할 것
 
-=============================================================
-## 2026-07-02
-=============================================================
-- Check the meeting ppt for all the history I made so far
-  → meeting_ppts/2026-07-02.pptx
+  현재 바로 쓸 수 있는 것:
+    - LIBERO (전 suite), VLABench  ← 표준 벤치마크
+    - BEHAVIOR-1K, Robosuite  ← CaP-X
+
+  추가 검토 대상 (Docker 빌드 필요):
+    - LIBERO-Plus / LIBERO-PRO / LIBERO-Mem / RoboCerebra
+    - RoboCasa, droid, RoboVoLo (Isaac Sim)
+
+  결정해야 할 질문:
+    1. 논문 contribution의 핵심이 뭔지 (robustness? generalization? long-horizon?)
+    2. 어떤 벤치마크 조합이 그걸 가장 잘 보여주는지
+    3. CaP-X / VoLoAgent 중 어디에 집중할지, 아니면 둘 다인지
+
+TODO:
+[ ] 형이랑 research framing + 벤치마크 확정 미팅
+[ ] 벤치마크 확정 후 필요한 Docker 이미지 빌드
+[ ] subgoal 모드 검증 (연구소, D 머신 GPU 분리)
+[ ] LLM 연동 실제 trial (연구소, CaP-X)
