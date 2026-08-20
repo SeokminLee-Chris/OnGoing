@@ -17,9 +17,7 @@ SmolVLM2 제외하고 전부 서빙 성공.
 - InternVL2_5-8B
 - InternVL2_5-38B
 - DeepSeek-VL2 (27B MoE, `--hf-overrides '{"architectures": ["DeepseekVLV2ForCausalLM"]}'` 필요)
-
-**성공 (연구소 내 추가):**
-- Phi-4-multimodal-instruct (audio 전용 모듈 trick으로 우회해서 해결)
+- Phi-4-multimodal-instruct (audio 전용 모듈 trick으로 우회)
 
 **실패한 모델:**
 - SmolVLM2-2.2B-Instruct (`num2words` 패키지 없음)
