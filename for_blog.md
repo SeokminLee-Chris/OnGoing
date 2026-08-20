@@ -26,7 +26,7 @@ SmolVLM2 제외하고 전부 서빙 성공.
 쿼리: D 머신(4090)에서 `vlm_query.sh` 이용.
 
 ### 3. VoLoAgent LIBERO 실험
-연구소에서 VoLoAgent + LIBERO 파이프라인 실행 성공. 단, **로봇이 이상하게 움직임 → 디버깅 필요**.
+연구소에서 VoLoAgent + LIBERO 파이프라인 실행 성공. audio 전용 모듈 충돌 이슈 있었으나 trick으로 우회해서 해결.
 
 세팅 참고: D 머신 `~/seokmin/seokmin_agent/volo-main/volo-agent/seokmins/add_env_settings.md`
 빠른 실행: D 머신 `~/seokmin/seokmin_agent/volo-main/volo-agent/utils/LIBERO/` 아래 sh 파일들 그대로 실행하면 됨.
